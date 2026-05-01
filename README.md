@@ -36,7 +36,7 @@ Remediation Twin creates a governed operating layer for:
 - MongoDB collections for tenants, assets, findings, remediation actions, simulations, workflows, policies, reports, connector runs, and audit events.
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
 - Asset inventory with environment, type, exposure, criticality, and data sensitivity.
-- Vulnerability chaining and attack-path analytics across scanner-normalized inputs.
+- Graph-native vulnerability chaining and attack-path analytics across scanner-normalized inputs.
 - Business-risk scoring that accounts for severity, exploitability, active exploitation, patch availability, internet exposure, asset criticality, and data sensitivity.
 - Attack-path difficulty scoring and before/after remediation risk for customer-facing decision support.
 - Remediation queue with simulation, plan generation, approval workflow, and status transitions.
@@ -102,6 +102,9 @@ The `/api/attack-paths` backend and Attack Paths UI convert scanner findings int
 - normalizes Tenable, Qualys, Wiz, Snyk, GitHub Advanced Security, AWS Security Hub, Kubernetes, IAM, cloud posture, compliance, CSV, and API findings into chain steps
 - uses asset reachability, internet exposure, exploit availability, active exploitation, patchability, policy controls, and production/crown-jewel targeting
 - builds bounded logical attack paths from likely entry points to high-value targets
+- returns graph-native attack path nodes and edges for entry assets, reachable services, exploit preconditions, targets, and breaker controls
+- renders an Attack Path Graph UI that makes path traversal and risk transfer visible
+- renders a Vulnerability Chaining Graph UI that shows ordered exploit steps, scanner source, mapped technique, difficulty, before/after risk, and breaker impact
 - labels path difficulty as `LOW`, `MEDIUM`, `HIGH`, or `VERY_HIGH`
 - compares before-remediation risk with estimated after-remediation residual risk
 - recommends virtual patches, microsegmentation, conditional IAM denies, route restrictions, and simulation-backed path breakers
@@ -137,7 +140,7 @@ Agentic safety rules:
 | POST | `/api/ingest/json` | Ingest real finding payloads |
 | POST | `/api/mock-ingest` | Load prototype findings |
 | GET | `/api/assets` | List assets |
-| GET | `/api/attack-paths` | Vulnerability chains, attack paths, difficulty, and before/after risk |
+| GET | `/api/attack-paths` | Attack graph, vulnerability chain graph, difficulty, and before/after risk |
 | POST | `/api/attack-paths` | Snapshot attack-path analytics |
 | GET | `/api/findings` | List canonical findings |
 | GET | `/api/remediation-actions` | List remediation actions |

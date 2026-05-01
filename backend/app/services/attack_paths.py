@@ -63,6 +63,7 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
 
     paths.sort(key=lambda path: path["before_remediation_risk"], reverse=True)
     paths = paths[:25]
+    graph_model = _graph_model(paths)
     return {
         "generated_by": "scanner-normalized-attack-path-engine",
         "construction_method": {
@@ -92,7 +93,16 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             "average_after_risk": _avg([path["after_remediation_risk"] for path in paths]),
             "average_risk_reduction": _avg([path["risk_delta"] for path in paths]),
             "scanner_inputs": sorted({source for path in paths for source in path["scanner_inputs"]}),
+            "graph_nodes": len(graph_model["nodes"]),
+            "graph_edges": len(graph_model["edges"]),
+            "vulnerability_chains": len(graph_model["vulnerability_chains"]),
         },
+        "attack_graph": {
+            "method": "Layered logical attack graph: entry assets, reachable services, exploit preconditions, crown-jewel targets, and policy-backed breaker controls.",
+            "nodes": graph_model["nodes"],
+            "edges": graph_model["edges"],
+        },
+        "vulnerability_chain_graph": graph_model["vulnerability_chains"],
         "paths": paths,
     }
 
@@ -247,6 +257,122 @@ def _priority(before: int, after: int) -> str:
     return "monitor"
 
 
+def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: dict[str, dict[str, Any]] = {}
+    chains: list[dict[str, Any]] = []
+
+    def upsert(node: dict[str, Any]) -> None:
+        existing = nodes.get(node["id"])
+        if existing:
+            existing["risk"] = max(int(existing.get("risk", 0)), int(node.get("risk", 0)))
+            return
+        nodes[node["id"]] = node
+
+    for path in paths:
+        hop_ids = [f"asset:{_slug(str(hop))}" for hop in path["hops"]]
+        for index, hop in enumerate(path["hops"]):
+            upsert({
+                "id": hop_ids[index],
+                "label": hop,
+                "kind": "entry" if index == 0 else "crown_jewel" if index == len(path["hops"]) - 1 else "asset",
+                "group": "Entry" if index == 0 else "Target" if index == len(path["hops"]) - 1 else "Transit",
+                "risk": path["before_remediation_risk"] if index == len(path["hops"]) - 1 else max(20, path["before_remediation_risk"] - index * 8),
+                "difficulty": path["difficulty"],
+            })
+            if index > 0:
+                edge_id = f"reach:{path['id']}:{index}"
+                edges[edge_id] = {
+                    "id": edge_id,
+                    "from": hop_ids[index - 1],
+                    "to": hop_ids[index],
+                    "label": f"{path['difficulty']} / {path['before_remediation_risk']}%",
+                    "weight": path["before_remediation_risk"],
+                    "path_id": path["id"],
+                    "relation": "reachability",
+                }
+
+        chain_nodes = []
+        chain_edges = []
+        for index, step in enumerate(path["chain"]):
+            node = {
+                "id": f"finding:{path['id']}:{index}:{_slug(str(step.get('finding_id')))}",
+                "label": step.get("title") or "Finding",
+                "kind": "finding",
+                "group": step.get("source") or "scanner",
+                "risk": step.get("business_risk", 0),
+                "difficulty": path["difficulty"],
+            }
+            upsert(node)
+            chain_nodes.append(node)
+            source = hop_ids[0] if index == 0 else chain_nodes[index - 1]["id"]
+            edge = {
+                "id": f"chain:{path['id']}:{index}",
+                "from": source,
+                "to": node["id"],
+                "label": step.get("technique") or "Exploit precondition",
+                "weight": step.get("business_risk", 0),
+                "path_id": path["id"],
+                "relation": "exploit_precondition",
+            }
+            edges[edge["id"]] = edge
+            chain_edges.append(edge)
+
+        breaker = {
+            "id": f"breaker:{path['id']}",
+            "label": path["recommended_breakers"][0] if path["recommended_breakers"] else "Simulation-backed path breaker",
+            "kind": "breaker",
+            "group": path["priority"],
+            "risk": path["risk_delta"],
+            "difficulty": path["difficulty"],
+        }
+        upsert(breaker)
+
+        if chain_nodes:
+            target_edge = {
+                "id": f"chain:{path['id']}:target",
+                "from": chain_nodes[-1]["id"],
+                "to": hop_ids[-1],
+                "label": f"{path['target_asset']} compromise",
+                "weight": path["before_remediation_risk"],
+                "path_id": path["id"],
+                "relation": "exploit_precondition",
+            }
+            breaker_edge = {
+                "id": f"breaker:{path['id']}:risk-drop",
+                "from": breaker["id"],
+                "to": hop_ids[-1],
+                "label": f"{path['risk_delta']}% risk reduction",
+                "weight": path["risk_delta"],
+                "path_id": path["id"],
+                "relation": "breaker",
+            }
+            edges[target_edge["id"]] = target_edge
+            edges[breaker_edge["id"]] = breaker_edge
+            chain_edges.extend([target_edge, breaker_edge])
+
+        chains.append({
+            "path_id": path["id"],
+            "path_name": path["name"],
+            "difficulty": path["difficulty"],
+            "before_remediation_risk": path["before_remediation_risk"],
+            "after_remediation_risk": path["after_remediation_risk"],
+            "nodes": [
+                {"id": hop_ids[0], "label": path["entry_asset"], "kind": "entry", "group": "Entry", "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]},
+                *chain_nodes,
+                {"id": hop_ids[-1], "label": path["target_asset"], "kind": "crown_jewel", "group": "Target", "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]},
+                breaker,
+            ],
+            "edges": chain_edges,
+        })
+
+    return {
+        "nodes": sorted(nodes.values(), key=lambda node: int(node.get("risk", 0)), reverse=True)[:80],
+        "edges": sorted(edges.values(), key=lambda edge: int(edge.get("weight", 0)), reverse=True)[:120],
+        "vulnerability_chains": chains[:8],
+    }
+
+
 def _asset_int(asset: dict[str, Any], key: str, default: int) -> int:
     return int(asset.get(key, asset.get(key.replace("_", ""), default)) or default)
 
@@ -257,3 +383,10 @@ def _avg(values: list[int]) -> int:
 
 def _clamp(value: float, low: int = 1, high: int = 100) -> int:
     return max(low, min(high, round(value)))
+
+
+def _slug(value: str) -> str:
+    slug = "".join(char.lower() if char.isalnum() else "-" for char in value).strip("-")
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug or "node"

@@ -173,10 +173,100 @@ function AttackPaths({ refresh, bump }: PageProps) {
         <Metric label="Before Risk" value={`${model?.summary?.average_before_risk ?? 0}%`} />
         <Metric label="After Risk" value={`${model?.summary?.average_after_risk ?? 0}%`} />
       </section>
+      <AttackGraphView model={model} />
+      <ChainGraphView chains={model?.vulnerability_chain_graph || []} />
       <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority"]} />
       <Json value={model?.construction_method || {}} />
     </>
   );
+}
+
+function AttackGraphView({ model }: { model: any }) {
+  const nodes = model?.attack_graph?.nodes || [];
+  const edges = model?.attack_graph?.edges || [];
+  const entries = nodes.filter((node: any) => node.kind === "entry").slice(0, 5);
+  const targets = nodes.filter((node: any) => node.kind === "crown_jewel" || node.kind === "breaker").slice(0, 6);
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <div>
+          <h2>Attack Path Graph</h2>
+          <p>Entry assets, reachable services, exploit preconditions, crown-jewel targets, and breaker controls.</p>
+        </div>
+        <Badge value={`${nodes.length} nodes / ${edges.length} edges`} />
+      </div>
+      <div className="attack-graph-board">
+        <div className="graph-column">
+          <span>Entry</span>
+          {entries.map((node: any) => <GraphNode key={node.id} node={node} />)}
+        </div>
+        <div className="graph-column wide">
+          <span>Reachability and exploit edges</span>
+          {edges.slice(0, 10).map((edge: any) => (
+            <div className={`graph-link ${edge.relation}`} key={edge.id}>
+              <strong>{nodeLabel(edge.from, nodes)}</strong>
+              <span>{edge.label}</span>
+              <strong>{nodeLabel(edge.to, nodes)}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="graph-column">
+          <span>Targets and breakers</span>
+          {targets.map((node: any) => <GraphNode key={node.id} node={node} />)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ChainGraphView({ chains }: { chains: any[] }) {
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <div>
+          <h2>Vulnerability Chaining Graph</h2>
+          <p>Ordered exploit chains with scanner source, technique, difficulty, residual risk, and the control that breaks the path.</p>
+        </div>
+        <Badge value={`${chains.length} chains`} />
+      </div>
+      <div className="chain-grid">
+        {chains.map((chain) => (
+          <article className="chain-card" key={chain.path_id}>
+            <div className="chain-head">
+              <div>
+                <strong>{chain.path_name}</strong>
+                <span>{chain.before_remediation_risk}% before / {chain.after_remediation_risk}% after</span>
+              </div>
+              <Badge value={chain.difficulty} />
+            </div>
+            <div className="chain-rail">
+              {(chain.nodes || []).map((node: any, index: number) => (
+                <div className="chain-node-wrap" key={`${chain.path_id}-${node.id}-${index}`}>
+                  <GraphNode node={node} compact />
+                  {index < chain.nodes.length - 1 && <div className="chain-arrow">risk transfer</div>}
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+        {chains.length === 0 && <div className="empty">No attack paths yet. Load findings or ingest scanner data.</div>}
+      </div>
+    </section>
+  );
+}
+
+function GraphNode({ node, compact = false }: { node: any; compact?: boolean }) {
+  return (
+    <div className={`graph-node ${node.kind} ${compact ? "compact" : ""}`}>
+      <small>{String(node.kind || "node").replace("_", " ")}</small>
+      <strong>{node.label}</strong>
+      <span>{node.group} | {node.risk}%</span>
+    </div>
+  );
+}
+
+function nodeLabel(id: string, nodes: any[]) {
+  return nodes.find((node) => node.id === id)?.label || id.replace(/^(asset|finding|breaker):/, "");
 }
 
 function Remediation({ refresh, bump }: PageProps) {
