@@ -1,0 +1,49 @@
+from fastapi import APIRouter, Depends
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.config import get_settings
+from app.dependencies import database, tenant_context
+from app.models import Tenant
+from app.services.dashboard import asset_graph, dashboard
+
+router = APIRouter()
+
+
+@router.get("/health")
+async def health(db: AsyncIOMotorDatabase = Depends(database)):
+    await db.command("ping")
+    return {"status": "ok", "service": get_settings().app_name}
+
+
+@router.get("/tenants")
+async def tenants(db: AsyncIOMotorDatabase = Depends(database)):
+    return {"tenants": await db.tenants.find({}).sort("created_at", -1).to_list(100)}
+
+
+@router.post("/tenants")
+async def create_tenant(payload: dict, db: AsyncIOMotorDatabase = Depends(database)):
+    tenant = Tenant(name=payload["name"], slug=payload["slug"])
+    await db.tenants.insert_one(tenant.model_dump(by_alias=True))
+    return {"tenant": tenant}
+
+
+@router.get("/dashboard")
+async def get_dashboard(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return await dashboard(db, tenant.id)
+
+
+@router.get("/asset-graph")
+async def get_asset_graph(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return await asset_graph(db, tenant.id)
+
+
+@router.get("/observability")
+async def observability(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    failures = await db.connector_runs.count_documents({"tenant_id": tenant.id, "status": {"$in": ["FAILED", "ERROR"]}})
+    return {
+        "tenant_id": tenant.id,
+        "mongo": "connected",
+        "failed_connector_runs": failures,
+        "otel_configured": bool(get_settings().otel_exporter_otlp_endpoint),
+        "alerts_configured": bool(get_settings().alert_webhook_url),
+    }
+
