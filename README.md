@@ -1,100 +1,56 @@
 # Remediation Twin: React + Python FastAPI + MongoDB
 
-Remediation Twin is an enterprise remediation simulation, orchestration, and agentic governance platform refactored into a React frontend, Python FastAPI backend, and MongoDB persistence layer.
+Remediation Twin is an enterprise remediation simulation, orchestration, vulnerability analytics, and agentic governance platform refactored into a React frontend, Python FastAPI backend, and MongoDB persistence layer.
 
-The platform helps enterprises move from chaotic vulnerability backlogs to governed remediation execution. It ingests findings from scanners, cloud security tools, IAM platforms, Kubernetes, code security, compliance systems, and ticketing tools; maps them to assets; scores business risk; simulates remediation; generates rollout and rollback plans; routes approvals; applies virtual patches and attack-path breakers; and records audit evidence.
+The platform helps enterprises move from chaotic vulnerability backlogs to governed remediation execution. It ingests findings from scanners, cloud security tools, IAM platforms, Kubernetes, code security, compliance systems, and ticketing tools; maps them to assets; chains vulnerabilities into attack paths; scores before and after remediation risk; simulates remediation; recommends virtual patches and path breakers; routes approvals; and records audit evidence.
 
-## Why This Exists
+## What Is Included
 
-Enterprises usually have many detection tools but no trusted system of action. Vulnerability management, cloud security, identity, application security, and GRC teams all create overlapping work. Engineering teams then receive tickets without clear blast radius, ownership, rollback guidance, approval context, or evidence requirements.
-
-Remediation Twin creates a governed operating layer for:
-
-- deciding which findings matter most
-- mapping findings to real assets and business services
-- simulating remediation before production change
-- reducing risk with virtual patching when permanent remediation is delayed
-- breaking risky attack paths before a full fix is safe
-- routing human approvals for high-risk work
-- generating evidence for audit and leadership reporting
-- using agentic planning without allowing uncontrolled execution
-
-## Technology Stack
-
-| Layer | Technology |
-| --- | --- |
-| Frontend | React 19, Vite, TypeScript, Lucide icons |
-| Backend | Python, FastAPI, Pydantic, Motor |
-| Database | MongoDB |
-| Local runtime | Docker Compose |
-| API docs | FastAPI OpenAPI at `/docs` |
-| Agentic runtime | Deterministic fallback plus optional LLM, SLM, or enterprise model gateway |
-
-## Product Capabilities
-
-- Multi-tenant API surface using `x-tenant-id` or default tenant creation.
-- MongoDB collections for tenants, assets, findings, remediation actions, simulations, workflows, policies, reports, connector runs, and audit events.
-- Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
-- Asset inventory with environment, type, exposure, criticality, and data sensitivity.
-- Business-risk scoring that accounts for severity, exploitability, active exploitation, patch availability, internet exposure, asset criticality, and data sensitivity.
-- Remediation queue with simulation, plan generation, approval workflow, and status transitions.
-- Simulation engine for risk reduction, operational risk, rollback requirement, approval requirement, and confidence.
-- Remediation plan generation with rollout, rollback, validation, and evidence requirements.
-- Virtual patching and path breaker recommendations for exposed, unpatchable, or crown-jewel risk.
-- Agentic orchestrator that plans remediation with safety rails and model fallback.
-- Governance policies for virtual patching, evidence gates, dry-run controls, and production approval.
-- Reports, audit log, connector dry-runs, and worker dry-runs.
-- React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations.
+- React 19 + Vite + TypeScript frontend.
+- Python FastAPI backend with OpenAPI docs at `/docs`.
+- MongoDB persistence with tenant, asset, finding, action, simulation, workflow, policy, report, connector-run, and audit collections.
+- Tenant-scoped APIs using `x-tenant-id` or default tenant creation.
+- JSON and prototype ingestion with asset upsert, deduplication, fingerprinting, risk scoring, and remediation action creation.
+- Asset inventory with exposure, environment, criticality, and data sensitivity.
+- Vulnerability chaining and attack-path analytics from normalized scanner input.
+- Attack-path difficulty levels: LOW, MEDIUM, HIGH, VERY_HIGH.
+- Before-remediation risk, after-remediation residual risk, and expected risk delta.
+- Remediation simulation, plan generation, approval workflow, evidence requirements, and audit logging.
+- Virtual patching and path breaker recommendations.
+- Agentic planner that can use an LLM, SLM, model gateway, or deterministic fallback.
+- Dry-run connector and worker endpoints for production-safe integration testing.
 - Docker Compose for local MongoDB, API, and web runtime.
 
-## Repository Structure
+## Attack Path Analytics
 
-```text
-.
-├── backend/
-│   ├── app/
-│   │   └── main.py
-│   ├── tests/
-│   │   └── test_domain.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── styles.css
-│   │   └── vite-env.d.ts
-│   ├── Dockerfile
-│   ├── index.html
-│   ├── package.json
-│   └── tsconfig.json
-├── docs/
-│   ├── API.md
-│   ├── ARCHITECTURE.md
-│   └── SECURITY.md
-├── PRD.md
-├── docker-compose.yml
-├── pytest.ini
-└── README.md
+The `/api/attack-paths` endpoint turns scanner noise into end-to-end vulnerability analytics.
+
+Construction method:
+
+1. Normalize scanner findings into the canonical finding model.
+2. Map findings to assets, criticality, sensitivity, and exposure.
+3. Treat internet-exposed and scanner-indicated assets as possible initial access points.
+4. Treat production, critical, and sensitive assets as crown-jewel targets.
+5. Build bounded logical paths between initial access and crown-jewel targets.
+6. Convert each path into ordered vulnerability chain steps with source scanner, category, severity, exploit status, active exploitation, patch state, business risk, and ATT&CK-style technique label.
+7. Score difficulty from hop count, exposure, exploitability, active exploitation, patchability, and control friction.
+8. Score before remediation risk and after remediation residual risk using simulations, policy controls, patching, virtual patching, and path breakers.
+9. Recommend controls such as WAF/API gateway virtual patch, microsegmentation, conditional IAM deny, and path-risk validation.
+
+API:
+
+```bash
+curl http://localhost:8000/api/attack-paths
+curl -X POST http://localhost:8000/api/attack-paths \
+  -H "content-type: application/json" \
+  -d '{"action":"snapshot"}'
 ```
 
-## Core Application Flow
-
-1. A tenant is resolved from `x-tenant-id` or a default tenant is created.
-2. Findings are ingested through JSON or prototype ingestion.
-3. Assets are upserted from finding payloads.
-4. Findings are fingerprinted and deduplicated.
-5. Technical risk and business risk are calculated.
-6. A remediation action is generated for each new canonical finding.
-7. Users simulate remediation to estimate risk reduction and operational risk.
-8. Users generate rollout, rollback, validation, and evidence plans.
-9. Users create approval workflows for governed execution.
-10. Virtual patching recommends compensating controls and path breakers.
-11. Agentic planning creates a governed tool plan with dry-run defaults.
-12. Reports and audit logs preserve decision history.
+The React UI includes an **Attack Paths** page that shows summary metrics, path difficulty, before risk, after risk, risk delta, and construction method.
 
 ## Agentic LLM and SLM Support
 
-The agentic layer is model-agnostic. It can use external models when configured, but it always has a deterministic fallback so the platform remains usable in regulated, offline, or demo environments.
+The agentic layer is model-agnostic. It can use external models when configured, but always has a deterministic fallback.
 
 | Provider | Environment |
 | --- | --- |
@@ -104,7 +60,7 @@ The agentic layer is model-agnostic. It can use external models when configured,
 | Gemini-compatible | `GEMINI_API_KEY`, `GEMINI_MODEL` |
 | Local SLM | `LOCAL_SLM_URL`, `LOCAL_SLM_MODEL` |
 
-Agentic safety rules:
+Safety rules:
 
 - Model output is advisory.
 - Live execution remains dry-run by default.
@@ -123,6 +79,8 @@ Agentic safety rules:
 | POST | `/api/mock-ingest` | Load prototype findings |
 | GET | `/api/assets` | List assets |
 | GET | `/api/findings` | List canonical findings |
+| GET | `/api/attack-paths` | Build vulnerability chains and attack paths |
+| POST | `/api/attack-paths` | Snapshot attack-path analytics into reports and audit |
 | GET | `/api/remediation-actions` | List remediation actions |
 | POST | `/api/remediation-actions/{id}/simulate` | Run simulation |
 | POST | `/api/remediation-actions/{id}/plan` | Generate remediation plan |
@@ -173,51 +131,14 @@ pytest
 cd frontend
 npm install
 npm run dev
-```
-
-Build frontend:
-
-```bash
 npm run build
 ```
 
-## Demo Flow
-
-1. Open the frontend at `http://localhost:3000`.
-2. Click **Load prototype data**.
-3. Review dashboard risk, findings, assets, and remediation actions.
-4. Open Remediation and simulate the first action.
-5. Generate a remediation plan.
-6. Create an approval workflow.
-7. Open Virtual Patch and activate controls.
-8. Open Agentic and run an agent plan.
-9. Review policies, reports, audit, and operations.
-
 ## Production Readiness
 
-The application includes the foundations expected for an enterprise pilot:
-
-- tenant-scoped APIs
-- MongoDB indexes for important query and uniqueness paths
-- dry-run connector and worker contracts
-- security headers
-- rate-limit middleware
-- risk scoring
-- simulation and rollback modeling
-- approval workflow creation
-- virtual patching and path breaker planning
-- agentic model fallback
-- audit logging
-- reports
-- Docker Compose
-- backend tests
-- frontend build pipeline
+The application includes the foundations expected for an enterprise pilot: tenant-scoped APIs, MongoDB indexes, dry-run connector and worker contracts, security headers, rate-limit middleware, risk scoring, vulnerability chaining, attack-path analytics, simulation and rollback modeling, approval workflow creation, virtual patching, path breaker planning, agentic fallback, audit logging, reports, Docker Compose, backend tests, and frontend build pipeline.
 
 For live production deployment, add managed MongoDB, external secret manager, enterprise SSO, immutable object storage for evidence, queue-backed workers, OpenTelemetry tracing, alert routing, centralized rate limiting, and organization-specific governance policies.
-
-## Current Execution Policy
-
-Live execution is intentionally disabled by default. The platform records dry-run connector and worker operations until production credentials, approval policies, change windows, rollback plans, and evidence storage are configured.
 
 ## Documentation
 
