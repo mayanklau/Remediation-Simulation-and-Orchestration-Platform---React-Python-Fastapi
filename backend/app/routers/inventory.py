@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from app.auth import Principal, principal_context, require_permission
 from app.dependencies import database, tenant_context
 from app.models import Asset, Tenant, now
+from app.repositories import list_findings
 
 router = APIRouter()
 
@@ -19,8 +21,17 @@ async def create_asset(payload: dict, tenant: Tenant = Depends(tenant_context), 
 
 
 @router.get("/findings")
-async def findings(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
-    return {"findings": await db.findings.find({"tenant_id": tenant.id}).sort("business_risk_score", -1).to_list(500)}
+async def findings(
+    request: Request,
+    tenant: Tenant = Depends(tenant_context),
+    db: AsyncIOMotorDatabase = Depends(database),
+    principal: Principal = Depends(principal_context),
+):
+    require_permission(principal, "finding:read")
+    return {
+        "findings": await list_findings(db, tenant.id, request.query_params.get("status"), request.query_params.get("severity"), 500),
+        "correlation_id": principal.correlation_id,
+    }
 
 
 @router.patch("/findings/{finding_id}")
@@ -28,4 +39,3 @@ async def update_finding(finding_id: str, payload: dict, tenant: Tenant = Depend
     payload["updated_at"] = now()
     await db.findings.update_one({"_id": finding_id, "tenant_id": tenant.id}, {"$set": payload})
     return {"finding": await db.findings.find_one({"_id": finding_id, "tenant_id": tenant.id})}
-

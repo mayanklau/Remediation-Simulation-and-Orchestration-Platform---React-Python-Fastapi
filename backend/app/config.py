@@ -1,10 +1,11 @@
 from functools import lru_cache
+from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "Remediation Twin"
-    environment: str = "development"
+    environment: Literal["local", "dev", "staging", "production"] = "local"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     mongo_uri: str = "mongodb://localhost:27017"
@@ -31,11 +32,20 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     local_slm_url: str = ""
     local_slm_model: str = ""
+    feature_autonomous_remediation: bool = False
+    feature_model_planning: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    def validate_runtime(self) -> None:
+        if self.environment == "production" and self.session_secret == "replace-with-32-byte-random-secret":
+            raise ValueError("SESSION_SECRET must be configured in production")
+        if self.environment == "production" and (not self.oidc_issuer or not self.oidc_client_id):
+            raise ValueError("OIDC issuer and client id are required in production")
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
-
+    settings = Settings()
+    settings.validate_runtime()
+    return settings

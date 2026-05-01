@@ -19,6 +19,10 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 ## 3. Goals
 
 - Provide a full-stack remediation platform using React, FastAPI, and MongoDB.
+- Add SSO/OIDC, tenant isolation tests, and RBAC enforcement contracts on sensitive routes.
+- Separate API routes from service, repository, DTO, and shared validation contracts.
+- Add queue workers for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- Add environment separation for local, dev, staging, and production with strict config validation.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.
 - Construct graph-native scanner-normalized vulnerability chains and attack paths.
@@ -89,6 +93,10 @@ Users can run an agentic plan using a configured LLM, SLM, model gateway, or det
 
 | Area | Requirement |
 | --- | --- |
+| Auth and tenancy | Enforce tenant boundary and RBAC on sensitive APIs; require OIDC/session configuration in production. |
+| Service architecture | Use repositories, services, DTOs, and shared validation instead of direct route persistence logic. |
+| Queue workers | Support ingestion, simulation, connector sync, evidence generation, and report snapshot worker lanes. |
+| CI/CD gates | Run compile, tests, frontend build, dependency audit, and container-scan readiness checks. |
 | Tenancy | Resolve tenant through `x-tenant-id`; create default local tenant when missing. |
 | Ingestion | Support JSON ingestion and prototype data load. |
 | Deduplication | Fingerprint findings by source, title, CVE/control, and asset. |
@@ -111,6 +119,18 @@ Users can run an agentic plan using a configured LLM, SLM, model gateway, or det
 | Reports | Store report snapshots and agent plans. |
 | Audit | Record important operational events. |
 | Operations | Provide connector and worker dry-run endpoints. |
+
+## Advanced Vulnerability Analytics Requirements
+
+| Capability | Requirement |
+| --- | --- |
+| Graph algorithms | Identify shortest exploitable path, k-hop blast radius, centrality-style concentration, choke points, and crown-jewel exposure. |
+| Domain chaining | Apply network, IAM, cloud, Kubernetes, application, CI/CD, secrets, and data-store chaining rules. |
+| Exploit preconditions | Model required privilege, network access, user interaction, token scope, lateral movement, and control friction. |
+| Difficulty explainability | Explain why a path is low, medium, high, or very high difficulty and list assumptions. |
+| Control simulation | Score before/after risk for patching, WAF/API rules, IAM denies, segmentation, container rebuilds, and cloud policies. |
+| Path breaker engine | Recommend the edge or control that removes the largest amount of path risk for the least change risk. |
+| Executive views | Show business services at risk, weekly risk reduced, blocked remediations, and attack paths closed. |
 
 ## 8. Attack Path Analytics Requirements
 

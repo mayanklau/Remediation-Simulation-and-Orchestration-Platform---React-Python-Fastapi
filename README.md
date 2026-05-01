@@ -33,6 +33,10 @@ Remediation Twin creates a governed operating layer for:
 ## Product Capabilities
 
 - Multi-tenant API surface using `x-tenant-id` or default tenant creation.
+- SSO/OIDC production contract, tenant-boundary dependency, RBAC permission helper, and route-level enforcement contracts.
+- Repository/service structure for separating API routing from persistence logic and shared validation.
+- Queue-worker contracts for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- Runtime configuration validation for local, dev, staging, and production.
 - MongoDB collections for tenants, assets, findings, remediation actions, simulations, workflows, policies, reports, connector runs, and audit events.
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
 - Asset inventory with environment, type, exposure, criticality, and data sensitivity.
@@ -48,6 +52,7 @@ Remediation Twin creates a governed operating layer for:
 - Reports, audit log, connector dry-runs, and worker dry-runs.
 - React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations.
 - Docker Compose for local MongoDB, API, and web runtime.
+- CI/CD quality gates for Python compile, pytest, frontend typecheck/build, dependency audit, and container-scan readiness.
 
 ## Repository Structure
 
@@ -96,6 +101,14 @@ Remediation Twin creates a governed operating layer for:
 13. Reports and audit logs preserve decision history.
 
 ## Attack Path Analytics
+
+Advanced analytics coverage:
+
+- shortest exploitable path, k-hop blast radius, crown-jewel exposure, choke-point, and path-breaker scoring
+- chaining rules for network, IAM, cloud, Kubernetes, application, CI/CD, secrets, and data-store findings
+- exploit preconditions for privilege, network access, user interaction, token scope, and lateral movement
+- before/after simulation by control type: patch, WAF/API rule, IAM deny, segmentation, container rebuild, and cloud policy
+- executive views for business services at risk, risk reduced, blocked remediations, and attack paths closed
 
 The `/api/attack-paths` backend and Attack Paths UI convert scanner findings into end-to-end vulnerability analytics:
 
