@@ -1,27 +1,26 @@
 # Product Requirements Document: Remediation Twin React + FastAPI
 
-## 1. Product Summary
+## Product Summary
 
 **Product name:** Remediation Twin
 
-**Category:** Enterprise remediation simulation, orchestration, and agentic governance platform
+**Category:** Enterprise remediation simulation, orchestration, vulnerability analytics, and agentic governance platform
 
 **Stack:** React, Python FastAPI, MongoDB
 
-**Purpose:** Help enterprises turn security findings into prioritized, simulated, approved, auditable remediation work with virtual patching, attack-path breakers, and governed agentic planning.
+**Purpose:** Help enterprises turn security findings into prioritized, simulated, approved, auditable remediation work with vulnerability chaining, attack-path analytics, virtual patching, path breakers, and governed agentic planning.
 
-## 2. Problem Statement
+## Problem Statement
 
-Enterprises have many tools that detect risk but few systems that safely coordinate remediation. Vulnerability scanners, cloud security tools, IAM analyzers, code scanners, Kubernetes platforms, and compliance systems produce overlapping findings. Teams struggle to decide what matters, who owns it, what will break if remediated, whether a compensating control is safer, and what evidence is needed.
+Enterprises have many tools that detect risk but few systems that safely coordinate remediation. Vulnerability scanners, cloud security tools, IAM analyzers, code scanners, Kubernetes platforms, and compliance systems produce overlapping findings. Teams struggle to decide what matters, how vulnerabilities chain together, who owns remediation, what will break if remediated, whether a compensating control is safer, what risk remains after remediation, and what evidence is needed.
 
-The result is duplicated tickets, delayed fixes, risky production changes, weak audit trails, and low trust between security and engineering.
-
-## 3. Goals
+## Goals
 
 - Provide a full-stack remediation platform using React, FastAPI, and MongoDB.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.
-- Prioritize by technical and business risk.
+- Construct vulnerability chains and attack paths from scanner-normalized inputs.
+- Prioritize by technical risk, business risk, path difficulty, and before/after remediation risk.
 - Simulate remediation before change.
 - Generate rollout, rollback, validation, and evidence plans.
 - Route high-risk work through approvals.
@@ -30,56 +29,28 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 - Keep live execution governed and dry-run by default.
 - Preserve audit logs and report snapshots.
 
-## 4. Non-Goals
+## Vulnerability Chaining Requirements
 
-- Replace scanners, SIEM, SOAR, ITSM, or CI/CD systems.
-- Execute production changes without credentials, approvals, rollback plans, and evidence gates.
-- Store raw secrets in application data.
-- Treat model output as authoritative execution permission.
+| Capability | Requirement |
+| --- | --- |
+| Scanner normalization | Accept Tenable, Qualys, Wiz, Snyk, GitHub Advanced Security, AWS Security Hub, Kubernetes, IAM, cloud posture, compliance, CSV, and API-style findings through the canonical finding model. |
+| Attack-path construction | Build logical paths from exposure, scanner findings, asset context, production/crown-jewel targeting, exploitability, active exploitation, and patch availability. |
+| Chain steps | Show source scanner, category, severity, technique, exploit state, active exploitation, patch state, and business risk for every step. |
+| Difficulty | Score every path as LOW, MEDIUM, HIGH, or VERY_HIGH. |
+| Before/after risk | Show pre-remediation risk, post-remediation residual risk, and expected risk delta. |
+| Breakers | Recommend WAF/API gateway virtual patches, microsegmentation, conditional IAM deny, and simulation-backed validation. |
+| Evidence | Snapshot attack-path analytics into reports and audit logs. |
 
-## 5. Target Users
+Required endpoints:
 
-- CISO and security leadership
-- Vulnerability management teams
-- Cloud security teams
-- IAM and identity teams
-- Platform engineering
-- Application security
-- GRC and audit teams
-- Change managers
-- Service owners
+- `GET /api/attack-paths`
+- `POST /api/attack-paths`
 
-## 6. Core User Journeys
+Required UI:
 
-### 6.1 Ingest Findings
+- Attack Paths page with path count, critical paths, average before risk, average after risk, difficulty, risk delta, and construction method.
 
-Users can ingest findings through JSON or prototype ingestion. The system normalizes each finding, maps or creates an asset, calculates risk, deduplicates by fingerprint, and creates a remediation action for each new canonical finding.
-
-### 6.2 Review Enterprise Risk
-
-Users can open the dashboard to see counts, open findings, assets, remediation actions, simulations, total business risk, and simulation coverage.
-
-### 6.3 Simulate Remediation
-
-Users can simulate a remediation action to estimate confidence, risk reduction, operational risk, approval requirement, and rollback requirement.
-
-### 6.4 Generate a Plan
-
-Users can generate remediation plans with rollout steps, rollback steps, validation steps, and evidence requirements.
-
-### 6.5 Route Approval
-
-Users can create approval workflows with security owner, service owner, and CAB-style approvals.
-
-### 6.6 Apply Virtual Patching
-
-Users can identify exposed, high-risk, or unpatchable findings and activate dry-run virtual patch policies.
-
-### 6.7 Run Agentic Planning
-
-Users can run an agentic plan using a configured LLM, SLM, model gateway, or deterministic fallback. The agent returns a governed plan with tool steps and safety rails.
-
-## 7. Functional Requirements
+## Functional Requirements
 
 | Area | Requirement |
 | --- | --- |
@@ -100,24 +71,11 @@ Users can run an agentic plan using a configured LLM, SLM, model gateway, or det
 | Audit | Record important operational events. |
 | Operations | Provide connector and worker dry-run endpoints. |
 
-## 8. Agentic Requirements
+## Agentic Requirements
 
-The platform must support:
+The platform must support deterministic fallback planning, OpenAI-compatible model gateways, local SLM endpoints, optional Anthropic and Gemini environment contracts, provider readiness display, no raw secrets in prompts, dry-run execution by default, report persistence, audit logging, and policy-gated execution eligibility.
 
-- deterministic fallback planning without external credentials
-- OpenAI-compatible model gateways
-- local SLM endpoints
-- optional Anthropic and Gemini environment contracts
-- provider readiness display in UI
-- no raw secrets in prompts
-- dry-run execution by default
-- report persistence for every plan
-- audit logging for every plan
-- policy-gated execution eligibility
-
-## 9. API Requirements
-
-Required API endpoints:
+## API Requirements
 
 - `GET /api/health`
 - `GET /api/dashboard`
@@ -125,6 +83,8 @@ Required API endpoints:
 - `POST /api/mock-ingest`
 - `GET /api/assets`
 - `GET /api/findings`
+- `GET /api/attack-paths`
+- `POST /api/attack-paths`
 - `GET /api/remediation-actions`
 - `POST /api/remediation-actions/{id}/simulate`
 - `POST /api/remediation-actions/{id}/plan`
@@ -140,49 +100,17 @@ Required API endpoints:
 - `POST /api/workers/run`
 - `GET /api/observability`
 
-## 10. Data Model
+## Data Model
 
-MongoDB collections:
+MongoDB collections: `tenants`, `assets`, `findings`, `remediation_actions`, `simulations`, `remediation_plans`, `workflow_items`, `policies`, `report_snapshots`, `connector_runs`, and `audit`.
 
-- `tenants`
-- `assets`
-- `findings`
-- `remediation_actions`
-- `simulations`
-- `remediation_plans`
-- `workflow_items`
-- `policies`
-- `report_snapshots`
-- `connector_runs`
-- `audit`
+Indexes include tenant slug uniqueness, tenant asset external ID uniqueness, tenant finding fingerprint uniqueness, tenant finding business risk sort, tenant remediation status lookup, and tenant audit time sort.
 
-Indexes:
+## UI Requirements
 
-- tenant slug uniqueness
-- tenant asset external ID uniqueness
-- tenant finding fingerprint uniqueness
-- tenant finding business risk sort
-- tenant remediation status lookup
-- tenant audit time sort
+The React app must include operational pages for Dashboard, Findings, Assets, Attack Paths, Remediation, Virtual Patch, Agentic, Policies, Reports, Audit, and Operations. Actions must call real FastAPI endpoints.
 
-## 11. UI Requirements
-
-The React app must include:
-
-- Dashboard
-- Findings
-- Assets
-- Remediation
-- Virtual Patch
-- Agentic
-- Policies
-- Reports
-- Audit
-- Operations
-
-Each page should be operational, not a marketing page. Actions should call real FastAPI endpoints.
-
-## 12. Security Requirements
+## Security Requirements
 
 - Apply security headers.
 - Apply local rate limiting.
@@ -192,27 +120,17 @@ Each page should be operational, not a marketing page. Actions should call real 
 - Require approvals for production-risk actions.
 - Preserve audit records for high-impact events.
 
-## 13. Production Readiness Requirements
+## Production Readiness Requirements
 
-Before live enterprise deployment, configure:
+Before live enterprise deployment, configure managed MongoDB, external secret manager, enterprise SSO/OIDC, immutable evidence storage, queue-backed workers, OpenTelemetry tracing, alert routing, centralized rate limits, production policy configuration, connector credentials, backup, and recovery.
 
-- managed MongoDB
-- external secret manager
-- enterprise SSO/OIDC
-- immutable evidence storage
-- queue-backed workers
-- OpenTelemetry tracing
-- alert routing
-- centralized rate limits
-- production policy configuration
-- connector credentials
-- backup and recovery process
-
-## 14. Success Metrics
+## Success Metrics
 
 - ingestion success rate
 - duplicate reduction
 - percent of findings mapped to assets
+- critical attack-path reduction
+- average before/after path-risk delta
 - simulation coverage
 - approval coverage
 - evidence coverage
@@ -222,50 +140,19 @@ Before live enterprise deployment, configure:
 - agentic readiness score
 - audit completeness
 
-## 15. Roadmap
+## Roadmap
 
 ### Phase 0: Prototype
-
-- Mock ingestion
-- Findings dashboard
-- Asset mapping
-- Basic risk scoring
-- One simulation type
-- Plan generation
+Mock ingestion, findings dashboard, asset mapping, basic risk scoring, one simulation type, and plan generation.
 
 ### Phase 1: Production MVP
-
-- Multi-tenant backend
-- JSON and CSV ingestion
-- MongoDB persistence
-- Remediation queue
-- Simulation engine v1
-- Approval workflow
-- Evidence and audit trail
-- Agentic planner v1
+Multi-tenant backend, JSON and CSV ingestion, MongoDB persistence, remediation queue, simulation engine v1, approval workflow, evidence and audit trail, attack-path analytics, and agentic planner v1.
 
 ### Phase 2: Enterprise Readiness
-
-- SSO
-- Advanced RBAC
-- ServiceNow integration
-- More scanner integrations
-- Advanced reporting
-- Audit hardening
-- Scale improvements
+SSO, advanced RBAC, ServiceNow integration, more scanner integrations, advanced reporting, audit hardening, scale improvements, and more simulation types.
 
 ### Phase 3: Automation Expansion
-
-- CI/CD execution hooks
-- Kubernetes rollout automation
-- Cloud remediation automation
-- IAM policy automation
-- Risk-based auto-approval policies
+CI/CD execution hooks, Kubernetes rollout automation, cloud remediation automation, IAM policy automation, and risk-based auto-approval policies.
 
 ### Phase 4: Autonomous Remediation Governance
-
-- Policy-governed automated fixes
-- Continuous simulation
-- Predictive risk modeling
-- Self-updating remediation campaigns
-- Advanced AI planning and verification
+Policy-governed automated fixes, continuous simulation, predictive risk modeling, self-updating remediation campaigns, and advanced AI planning and verification.
