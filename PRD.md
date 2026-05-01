@@ -244,6 +244,12 @@ Before live enterprise deployment, configure:
 - ingestion success rate
 - duplicate reduction
 - percent of findings mapped to assets
+- scanner-family graph readiness
+- exploit-signal and remediation-signal coverage
+- customer-ready attack paths
+- executive attack-path escalations
+- subject-maturity score
+- development release-confidence score
 - simulation coverage
 - approval coverage
 - evidence coverage

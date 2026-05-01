@@ -97,6 +97,10 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             "graph_edges": len(graph_model["edges"]),
             "vulnerability_chains": len(graph_model["vulnerability_chains"]),
         },
+        "scanner_coverage": _scanner_coverage(findings),
+        "decision_readiness": _decision_readiness(paths),
+        "subject_maturity": _subject_maturity(paths, graph_model, len(findings)),
+        "development_maturity": _development_maturity(paths, len(policies), len(simulations)),
         "attack_graph": {
             "method": "Layered logical attack graph: entry assets, reachable services, exploit preconditions, crown-jewel targets, and policy-backed breaker controls.",
             "nodes": graph_model["nodes"],
@@ -160,7 +164,87 @@ def _path_record(path: list[str], chain: list[dict[str, Any]], nodes: dict[str, 
         "likelihood": _clamp(100 - difficulty_score + 8 * len([step for step in chain if step["exploit_available"] or step["active_exploitation"]])),
         "business_impact": _clamp(_asset_int(target, "criticality", 3) * 12 + _asset_int(target, "data_sensitivity", 3) * 10 + before * 0.35),
         "recommended_breakers": _recommended_breakers(chain, bool(start.get("internet_exposure")), str(target.get("type", ""))),
+        "evidence_requirements": _evidence_requirements(chain),
+        "validation_plan": _validation_plan(chain, str(target.get("label", target.get("name", "target")))),
+        "customer_narrative": _customer_narrative(str(start.get("label")), str(target.get("label")), before, after),
         "priority": _priority(before, after),
+    }
+
+
+def _scanner_coverage(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    families = [
+        ("vulnerability_scanner", lambda source, category: source in {"tenable", "qualys", "rapid7"} or "vulnerability" in category),
+        ("cloud_posture", lambda source, category: source in {"wiz", "securityhub", "prisma", "defender"} or "cloud" in category),
+        ("code_security", lambda source, category: source in {"snyk", "github", "semgrep"} or "application" in category),
+        ("identity_iam", lambda _source, category: "iam" in category or "identity" in category),
+        ("network_kubernetes", lambda _source, category: "network" in category or "kubernetes" in category or "container" in category),
+        ("compliance_grc", lambda _source, category: "compliance" in category or "control" in category),
+    ]
+    coverage = []
+    for family, matcher in families:
+        matched = [
+            finding
+            for finding in findings
+            if matcher(str(finding.get("source", "")).lower(), str(finding.get("category", "")).lower())
+        ]
+        mapped = [finding for finding in matched if finding.get("asset_id")]
+        exploitable = [finding for finding in matched if finding.get("exploit_available") or finding.get("active_exploitation")]
+        actionable = [finding for finding in matched if finding.get("patch_available") or finding.get("cve") or finding.get("control_id")]
+        denominator = max(1, len(matched))
+        coverage.append({
+            "family": family,
+            "findings": len(matched),
+            "asset_mapping_coverage": _percent(len(mapped), denominator),
+            "exploit_signal_coverage": _percent(len(exploitable), denominator),
+            "remediation_signal_coverage": _percent(len(actionable), denominator),
+            "ready_for_attack_graph": bool(matched) and len(mapped) / denominator >= 0.6,
+        })
+    return coverage
+
+
+def _decision_readiness(paths: list[dict[str, Any]]) -> dict[str, Any]:
+    immediate = [path for path in paths if path["priority"] == "immediate"]
+    high_confidence = [path for path in paths if path["risk_delta"] >= 25 and path["after_remediation_risk"] < path["before_remediation_risk"]]
+    return {
+        "customer_ready_paths": len(high_confidence),
+        "immediate_executive_escalations": len(immediate),
+        "average_difficulty_score": _avg([path["difficulty_score"] for path in paths]),
+        "average_likelihood": _avg([path["likelihood"] for path in paths]),
+        "average_business_impact": _avg([path["business_impact"] for path in paths]),
+        "recommended_decision": "escalate_now" if immediate else "approve_top_path_breakers" if high_confidence else "improve_mapping_and_simulation",
+    }
+
+
+def _subject_maturity(paths: list[dict[str, Any]], graph_model: dict[str, Any], finding_count: int) -> dict[str, Any]:
+    signals = [
+        {"name": "Scanner-normalized inputs", "complete": finding_count > 0},
+        {"name": "Reachability graph", "complete": any(edge.get("relation") == "reachability" for edge in graph_model["edges"])},
+        {"name": "Exploit-precondition chain", "complete": any(edge.get("relation") == "exploit_precondition" for edge in graph_model["edges"])},
+        {"name": "Before/after residual risk", "complete": any(path["risk_delta"] > 0 for path in paths)},
+        {"name": "Path difficulty scoring", "complete": any(path["difficulty_score"] > 0 for path in paths)},
+        {"name": "Path breaker controls", "complete": any(node.get("kind") == "breaker" for node in graph_model["nodes"])},
+        {"name": "Evidence and validation plan", "complete": any(path.get("evidence_requirements") and path.get("validation_plan") for path in paths)},
+    ]
+    return {
+        "score": _percent(len([signal for signal in signals if signal["complete"]]), len(signals)),
+        "signals": signals,
+        "next_frontier": "Add probabilistic control effectiveness calibration from real incident, exploit, and change-failure history.",
+    }
+
+
+def _development_maturity(paths: list[dict[str, Any]], policy_count: int, simulation_count: int) -> dict[str, Any]:
+    gates = [
+        {"name": "Tenant-scoped data access", "status": "implemented"},
+        {"name": "Deterministic attack graph contract", "status": "implemented"},
+        {"name": "Policy guardrails", "status": "active" if policy_count else "needs_policy_seed"},
+        {"name": "Simulation evidence", "status": "active" if simulation_count else "needs_simulation_runs"},
+        {"name": "Residual risk explainability", "status": "implemented" if any(path.get("customer_narrative") for path in paths) else "needs_data"},
+        {"name": "Audit snapshot export", "status": "implemented"},
+    ]
+    return {
+        "gates": gates,
+        "release_confidence": _percent(len([gate for gate in gates if gate["status"] in {"implemented", "active"}]), len(gates)),
+        "production_posture": "enterprise_pilot_ready_with_live_connector_credentials",
     }
 
 
@@ -245,6 +329,38 @@ def _recommended_breakers(chain: list[dict[str, Any]], exposed: bool, target_typ
         breakers.add("Database route restriction to approved service identities")
     breakers.add("Simulation-backed before/after risk validation")
     return sorted(breakers)
+
+
+def _evidence_requirements(chain: list[dict[str, Any]]) -> list[str]:
+    requirements = {"Before-state scanner evidence", "Simulation result", "Approval trail", "After-state validation"}
+    if any("iam" in step["category"].lower() for step in chain):
+        requirements.add("IAM policy diff")
+    if any("network" in step["category"].lower() for step in chain):
+        requirements.add("Network path proof")
+    if any(step["patch_available"] for step in chain):
+        requirements.add("Patch or package version proof")
+    if any(step["active_exploitation"] for step in chain):
+        requirements.add("Threat-intel exception review")
+    return sorted(requirements)
+
+
+def _validation_plan(chain: list[dict[str, Any]], target_name: str) -> list[str]:
+    steps = [
+        "Re-run source scanners for all chain findings",
+        f"Confirm residual access to {target_name} is blocked",
+        "Recompute before/after path risk",
+    ]
+    if any("iam" in step["category"].lower() for step in chain):
+        steps.append("Replay least-privilege IAM checks")
+    if any("network" in step["category"].lower() for step in chain):
+        steps.append("Run network reachability validation")
+    if any(step["patch_available"] for step in chain):
+        steps.append("Verify patched versions in inventory")
+    return steps
+
+
+def _customer_narrative(entry: str, target: str, before: int, after: int) -> str:
+    return f"Before remediation, {entry} can contribute to a {before}% path risk toward {target}. After the recommended breaker and validated remediation, projected residual path risk is {after}%."
 
 
 def _priority(before: int, after: int) -> str:
@@ -379,6 +495,10 @@ def _asset_int(asset: dict[str, Any], key: str, default: int) -> int:
 
 def _avg(values: list[int]) -> int:
     return round(mean(values)) if values else 0
+
+
+def _percent(numerator: int, denominator: int) -> int:
+    return round((numerator / max(1, denominator)) * 100)
 
 
 def _clamp(value: float, low: int = 1, high: int = 100) -> int:

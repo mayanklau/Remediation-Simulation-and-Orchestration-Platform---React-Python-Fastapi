@@ -110,6 +110,17 @@ The `/api/attack-paths` backend and Attack Paths UI convert scanner findings int
 - recommends virtual patches, microsegmentation, conditional IAM denies, route restrictions, and simulation-backed path breakers
 - snapshots the analytics into report and audit records
 
+### Maturity Additions
+
+The React/FastAPI/MongoDB version now includes the same enterprise maturity layer:
+
+- scanner-family coverage for vulnerability scanners, cloud posture, code security, IAM, network/Kubernetes, and compliance inputs
+- asset-mapping, exploit-signal, and remediation-signal coverage percentages so weak data is visible before customers trust an attack path
+- decision-readiness metrics for customer-ready paths, executive escalations, average difficulty, likelihood, business impact, and release confidence
+- subject-maturity checks for scanner normalization, reachability, exploit preconditions, before/after residual risk, path difficulty, breaker controls, evidence, and validation
+- development-maturity gates for tenant-scoped access, deterministic graph contracts, policy guardrails, simulation evidence, explainability, and audit snapshots
+- per-path evidence requirements, validation steps, and a customer-facing before/after risk narrative
+
 ## Agentic LLM and SLM Support
 
 The agentic layer is model-agnostic. It can use external models when configured, but it always has a deterministic fallback so the platform remains usable in regulated, offline, or demo environments.

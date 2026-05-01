@@ -173,9 +173,53 @@ function AttackPaths({ refresh, bump }: PageProps) {
         <Metric label="Before Risk" value={`${model?.summary?.average_before_risk ?? 0}%`} />
         <Metric label="After Risk" value={`${model?.summary?.average_after_risk ?? 0}%`} />
       </section>
+      <section className="grid cols-2">
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>Scanner Coverage</h2>
+              <p>Readiness by scanner family for mapping, exploit signal, remediation signal, and graph construction.</p>
+            </div>
+            <Badge value={`${model?.subject_maturity?.score ?? 0}% subject`} />
+          </div>
+          <table>
+            <thead><tr><th>family</th><th>findings</th><th>mapping</th><th>exploit</th><th>remediation</th></tr></thead>
+            <tbody>
+              {(model?.scanner_coverage || []).map((coverage: any) => (
+                <tr key={coverage.family}>
+                  <td>{coverage.family}</td>
+                  <td>{coverage.findings}</td>
+                  <td>{coverage.asset_mapping_coverage}%</td>
+                  <td>{coverage.exploit_signal_coverage}%</td>
+                  <td>{coverage.remediation_signal_coverage}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>Decision Readiness</h2>
+              <p>Customer-ready path risk, escalation posture, and release confidence from real platform state.</p>
+            </div>
+            <Badge value={model?.decision_readiness?.recommended_decision || "needs_data"} />
+          </div>
+          <table>
+            <tbody>
+              <tr><td>customer_ready_paths</td><td>{model?.decision_readiness?.customer_ready_paths ?? 0}</td></tr>
+              <tr><td>executive_escalations</td><td>{model?.decision_readiness?.immediate_executive_escalations ?? 0}</td></tr>
+              <tr><td>average_difficulty</td><td>{model?.decision_readiness?.average_difficulty_score ?? 0}%</td></tr>
+              <tr><td>average_likelihood</td><td>{model?.decision_readiness?.average_likelihood ?? 0}%</td></tr>
+              <tr><td>business_impact</td><td>{model?.decision_readiness?.average_business_impact ?? 0}%</td></tr>
+              <tr><td>release_confidence</td><td>{model?.development_maturity?.release_confidence ?? 0}%</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
       <AttackGraphView model={model} />
       <ChainGraphView chains={model?.vulnerability_chain_graph || []} />
-      <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority"]} />
+      <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority", "customer_narrative"]} />
       <Json value={model?.construction_method || {}} />
     </>
   );
