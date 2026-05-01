@@ -11,6 +11,8 @@ The API mirrors the original Remediation Twin surface while using FastAPI and Mo
 - `POST /api/tenants`
 - `GET /api/dashboard`
 - `GET /api/asset-graph`
+- `GET /api/attack-paths`
+- `POST /api/attack-paths`
 - `GET /api/observability`
 
 ## Ingestion
@@ -32,6 +34,8 @@ The API mirrors the original Remediation Twin surface while using FastAPI and Mo
 
 - `GET /api/virtual-patching`
 - `POST /api/virtual-patching`
+- `GET /api/attack-paths`
+- `POST /api/attack-paths`
 - `GET /api/agentic`
 - `POST /api/agentic`
 - `GET /api/policies`
@@ -47,3 +51,14 @@ The API mirrors the original Remediation Twin surface while using FastAPI and Mo
 - `GET /api/reports`
 - `GET /api/audit`
 
+## Attack Path Analytics
+
+`GET /api/attack-paths` returns scanner-normalized vulnerability chains, attack paths, path difficulty, before-remediation risk, after-remediation residual risk, recommended path breakers, and the construction method.
+
+`POST /api/attack-paths` accepts:
+
+```json
+{ "action": "snapshot" }
+```
+
+The snapshot action stores the model in `report_snapshots` as `attack_path_analytics` and writes an audit event. Inputs are normalized from the canonical finding model, so Tenable, Qualys, Wiz, Snyk, GitHub Advanced Security, AWS Security Hub, Kubernetes, IAM, cloud posture, compliance, CSV, and API scanners can contribute chain steps.

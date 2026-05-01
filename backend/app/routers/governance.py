@@ -3,6 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.dependencies import database, tenant_context
 from app.models import ConnectorRun, Policy, ReportSnapshot, Tenant
 from app.services.agentic import build_agentic_model, run_agentic_plan
+from app.services.attack_paths import build_attack_path_model, snapshot_attack_path_model
 from app.services.tenant import touch_audit
 from app.services.virtual_patching import activate_virtual_patching, build_virtual_patching_model
 
@@ -17,6 +18,18 @@ async def virtual_patching(tenant: Tenant = Depends(tenant_context), db: AsyncIO
 @router.post("/virtual-patching")
 async def activate_vp(payload: dict | None = None, tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
     return await activate_virtual_patching(db, tenant.id)
+
+
+@router.get("/attack-paths")
+async def attack_paths(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return {"attack_paths": await build_attack_path_model(db, tenant.id)}
+
+
+@router.post("/attack-paths")
+async def snapshot_attack_paths(payload: dict | None = None, tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    if payload and payload.get("action") not in [None, "snapshot"]:
+        return {"error": "Unsupported attack path action"}
+    return await snapshot_attack_path_model(db, tenant.id)
 
 
 @router.get("/agentic")
@@ -94,4 +107,3 @@ async def reports(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorData
 @router.get("/audit")
 async def audit(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
     return {"audit": await db.audit_logs.find({"tenant_id": tenant.id}).sort("created_at", -1).to_list(200)}
-

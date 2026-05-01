@@ -23,6 +23,7 @@ type RouteKey =
   | "findings"
   | "assets"
   | "graph"
+  | "attackPaths"
   | "remediation"
   | "simulations"
   | "workflows"
@@ -38,6 +39,7 @@ const nav: Array<{ key: RouteKey; label: string; icon: React.ComponentType<{ siz
   { key: "findings", label: "Findings", icon: ShieldAlert },
   { key: "assets", label: "Assets", icon: Boxes },
   { key: "graph", label: "Asset Graph", icon: Network },
+  { key: "attackPaths", label: "Attack Paths", icon: Network },
   { key: "remediation", label: "Remediation", icon: GitPullRequestArrow },
   { key: "simulations", label: "Simulations", icon: Activity },
   { key: "workflows", label: "Approvals", icon: CheckCircle2 },
@@ -157,6 +159,26 @@ function Graph({ refresh }: PageProps) {
   return <><Header eyebrow="Blast radius" title="Asset Graph" description="Dependency and attack-path graph for remediation impact decisions." /><section className="grid cols-3"><Metric label="Assets" value={data?.summary?.assets ?? 0} /><Metric label="Edges" value={data?.summary?.edges ?? 0} /><Metric label="Exposed" value={data?.summary?.exposed_assets ?? 0} /></section><Json value={data} /></>;
 }
 
+function AttackPaths({ refresh, bump }: PageProps) {
+  const { data } = useApi<any>("/api/attack-paths", refresh);
+  const model = data?.attack_paths;
+  return (
+    <>
+      <Header eyebrow="Vulnerability chaining" title="Attack Path Analytics" description="Scanner-normalized attack paths with difficulty and before/after remediation risk.">
+        <button onClick={async () => { await api("/api/attack-paths", { method: "POST", body: JSON.stringify({ action: "snapshot" }) }); bump(); }}>Snapshot analytics</button>
+      </Header>
+      <section className="grid cols-4">
+        <Metric label="Attack Paths" value={model?.summary?.attack_paths ?? 0} />
+        <Metric label="Critical Paths" value={model?.summary?.critical_paths ?? 0} />
+        <Metric label="Before Risk" value={`${model?.summary?.average_before_risk ?? 0}%`} />
+        <Metric label="After Risk" value={`${model?.summary?.average_after_risk ?? 0}%`} />
+      </section>
+      <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority"]} />
+      <Json value={model?.construction_method || {}} />
+    </>
+  );
+}
+
 function Remediation({ refresh, bump }: PageProps) {
   const { data } = useApi<any>("/api/remediation-actions", refresh);
   const first = data?.actions?.[0]?._id;
@@ -259,7 +281,6 @@ function Table({ title, rows, columns }: { title?: string; rows: any[]; columns:
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);
-
