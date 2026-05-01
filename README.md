@@ -33,9 +33,10 @@ Remediation Twin creates a governed operating layer for:
 ## Product Capabilities
 
 - Multi-tenant API surface using `x-tenant-id` or default tenant creation.
-- SSO/OIDC production contract, tenant-boundary dependency, RBAC permission helper, and route-level enforcement contracts.
+- SSO/OIDC production contract, tenant-boundary dependency, RBAC permission helper, and middleware-backed route-level enforcement across the API surface.
 - Repository/service structure for separating API routing from persistence logic and shared validation.
 - Queue-worker contracts for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- MongoDB index manifest, backup/restore script, seed-free test fixtures, and persistence contract tests.
 - Runtime configuration validation for local, dev, staging, and production.
 - MongoDB collections for tenants, assets, findings, remediation actions, simulations, workflows, policies, reports, connector runs, and audit events.
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
@@ -50,9 +51,9 @@ Remediation Twin creates a governed operating layer for:
 - Agentic orchestrator that plans remediation with safety rails and model fallback.
 - Governance policies for virtual patching, evidence gates, dry-run controls, and production approval.
 - Reports, audit log, connector dry-runs, and worker dry-runs.
-- React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations.
+- React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with graph filtering, zoom density, export, drill-down, empty states, and error-safe API loading.
 - Docker Compose for local MongoDB, API, and web runtime.
-- CI/CD quality gates for Python compile, pytest, frontend typecheck/build, dependency audit, and container-scan readiness.
+- CI/CD quality gates for Python compile, pytest, frontend build, dependency scans, Mongo index manifest checks, Docker builds, and container scans.
 
 ## Repository Structure
 

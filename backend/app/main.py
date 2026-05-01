@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.auth import AuthzMiddleware
 from app.database import lifespan
 from app.routers import core, governance, ingestion, inventory, remediation
 from app.security import InMemoryRateLimitMiddleware, SecurityHeadersMiddleware
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(InMemoryRateLimitMiddleware)
+app.add_middleware(AuthzMiddleware)
 
 for router in [core.router, ingestion.router, inventory.router, remediation.router, governance.router]:
     app.include_router(router, prefix="/api")
@@ -29,4 +31,3 @@ for router in [core.router, ingestion.router, inventory.router, remediation.rout
 @app.get("/")
 async def root():
     return {"service": "Remediation Twin API", "docs": "/docs", "health": "/api/health"}
-

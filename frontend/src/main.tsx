@@ -63,16 +63,20 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 function useApi<T>(path: string, refresh = 0) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     api<T>(path)
       .then((result) => active && setData(result))
-      .catch((err) => active && setError(String(err)));
+      .catch((err) => active && setError(String(err)))
+      .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
   }, [path, refresh]);
-  return { data, error };
+  return { data, error, loading };
 }
 
 function App() {
@@ -226,10 +230,16 @@ function AttackPaths({ refresh, bump }: PageProps) {
 }
 
 function AttackGraphView({ model }: { model: any }) {
+  const [kind, setKind] = useState("all");
+  const [zoom, setZoom] = useState("comfortable");
   const nodes = model?.attack_graph?.nodes || [];
   const edges = model?.attack_graph?.edges || [];
-  const entries = nodes.filter((node: any) => node.kind === "entry").slice(0, 5);
-  const targets = nodes.filter((node: any) => node.kind === "crown_jewel" || node.kind === "breaker").slice(0, 6);
+  const filteredNodes = kind === "all" ? nodes : nodes.filter((node: any) => node.kind === kind);
+  const filteredNodeIds = new Set(filteredNodes.map((node: any) => node.id));
+  const filteredEdges = edges.filter((edge: any) => kind === "all" || filteredNodeIds.has(edge.from) || filteredNodeIds.has(edge.to));
+  const entries = filteredNodes.filter((node: any) => node.kind === "entry").slice(0, 5);
+  const targets = filteredNodes.filter((node: any) => node.kind === "crown_jewel" || node.kind === "breaker").slice(0, 6);
+  const exportHref = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(model?.attack_graph || {}, null, 2))}`;
   return (
     <section className="panel">
       <div className="panel-head">
@@ -239,14 +249,31 @@ function AttackGraphView({ model }: { model: any }) {
         </div>
         <Badge value={`${nodes.length} nodes / ${edges.length} edges`} />
       </div>
-      <div className="attack-graph-board">
+      <div className="graph-toolbar">
+        <select value={kind} onChange={(event) => setKind(event.target.value)}>
+          <option value="all">All nodes</option>
+          <option value="entry">Entry</option>
+          <option value="finding">Findings</option>
+          <option value="crown_jewel">Crown jewels</option>
+          <option value="breaker">Path breakers</option>
+        </select>
+        <select value={zoom} onChange={(event) => setZoom(event.target.value)}>
+          <option value="compact">Compact</option>
+          <option value="comfortable">Comfortable</option>
+          <option value="expanded">Expanded</option>
+        </select>
+        <a className="button-link" href={exportHref} download="attack-path-graph.json">Export graph</a>
+      </div>
+      <div className={`attack-graph-board zoom-${zoom}`}>
         <div className="graph-column">
           <span>Entry</span>
+          {entries.length === 0 && <div className="empty">No matching entry nodes.</div>}
           {entries.map((node: any) => <GraphNode key={node.id} node={node} />)}
         </div>
         <div className="graph-column wide">
           <span>Reachability and exploit edges</span>
-          {edges.slice(0, 10).map((edge: any) => (
+          {filteredEdges.length === 0 && <div className="empty">No matching graph edges.</div>}
+          {filteredEdges.slice(0, zoom === "expanded" ? 20 : 10).map((edge: any) => (
             <div className={`graph-link ${edge.relation}`} key={edge.id}>
               <strong>{nodeLabel(edge.from, nodes)}</strong>
               <span>{edge.label}</span>
@@ -256,6 +283,7 @@ function AttackGraphView({ model }: { model: any }) {
         </div>
         <div className="graph-column">
           <span>Targets and breakers</span>
+          {targets.length === 0 && <div className="empty">No matching target or breaker nodes.</div>}
           {targets.map((node: any) => <GraphNode key={node.id} node={node} />)}
         </div>
       </div>
@@ -264,6 +292,9 @@ function AttackGraphView({ model }: { model: any }) {
 }
 
 function ChainGraphView({ chains }: { chains: any[] }) {
+  const [difficulty, setDifficulty] = useState("all");
+  const filteredChains = difficulty === "all" ? chains : chains.filter((chain) => chain.difficulty === difficulty);
+  const exportHref = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(filteredChains, null, 2))}`;
   return (
     <section className="panel">
       <div className="panel-head">
@@ -273,8 +304,18 @@ function ChainGraphView({ chains }: { chains: any[] }) {
         </div>
         <Badge value={`${chains.length} chains`} />
       </div>
+      <div className="graph-toolbar">
+        <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
+          <option value="all">All difficulty</option>
+          <option value="LOW">LOW</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="HIGH">HIGH</option>
+          <option value="VERY_HIGH">VERY_HIGH</option>
+        </select>
+        <a className="button-link" href={exportHref} download="vulnerability-chains.json">Export chains</a>
+      </div>
       <div className="chain-grid">
-        {chains.map((chain) => (
+        {filteredChains.map((chain) => (
           <article className="chain-card" key={chain.path_id}>
             <div className="chain-head">
               <div>
@@ -293,7 +334,7 @@ function ChainGraphView({ chains }: { chains: any[] }) {
             </div>
           </article>
         ))}
-        {chains.length === 0 && <div className="empty">No attack paths yet. Load findings or ingest scanner data.</div>}
+        {filteredChains.length === 0 && <div className="empty">No attack paths match this filter.</div>}
       </div>
     </section>
   );
@@ -405,13 +446,22 @@ function Table({ title, rows, columns }: { title?: string; rows: any[]; columns:
           {rows.length === 0 && <tr><td colSpan={columns.length}>No records yet.</td></tr>}
           {rows.map((row, index) => (
             <tr key={row._id || row.id || index}>
-              {columns.map((column) => <td key={column}>{typeof row[column] === "boolean" ? <Badge value={String(row[column])} /> : String(row[column] ?? "")}</td>)}
+              {columns.map((column) => <td key={column}>{renderCell(row, column)}</td>)}
             </tr>
           ))}
         </tbody>
       </table>
     </section>
   );
+}
+
+function renderCell(row: any, column: string) {
+  const value = row[column];
+  if (typeof value === "boolean") return <Badge value={String(value)} />;
+  if ((column === "name" || column === "title") && (row._id || row.id)) {
+    return <a className="drill-link" href={`#${row._id || row.id}`}>{String(value ?? "")}</a>;
+  }
+  return String(value ?? "");
 }
 
 type PageProps = { refresh: number; bump: () => void };
