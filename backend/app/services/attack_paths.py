@@ -63,7 +63,16 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
 
     paths.sort(key=lambda path: path["before_remediation_risk"], reverse=True)
     paths = paths[:25]
+    centrality = _centrality(paths)
+    for path in paths:
+        path["centrality_score"] = _avg([next((item["score"] for item in centrality if item["asset"] == hop), 0) for hop in path["hops"]])
+        path["choke_points"] = [
+            hop
+            for hop in path["hops"][1:-1]
+            if next((item["score"] for item in centrality if item["asset"] == hop), 0) >= 50
+        ][:3]
     graph_model = _graph_model(paths)
+    executive_views = _executive_views(paths)
     return {
         "generated_by": "scanner-normalized-attack-path-engine",
         "construction_method": {
@@ -98,6 +107,22 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             "vulnerability_chains": len(graph_model["vulnerability_chains"]),
         },
         "scanner_coverage": _scanner_coverage(findings),
+        "scanner_normalization_adapters": _scanner_normalization_adapters(),
+        "vulnerability_chaining_rules": _vulnerability_chaining_rules(),
+        "graph_algorithms": {
+            "shortest_exploitable_paths": [
+                {"path_id": path["id"], "name": path["name"], "hops": path["shortest_hop_count"], "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]}
+                for path in sorted(paths, key=lambda item: (item["shortest_hop_count"], -item["before_remediation_risk"]))[:10]
+            ],
+            "k_hop_blast_radius": [{"entry_asset": path["entry_asset"], "hops": 3, "impacted_assets": path["k_hop_blast_radius"], "top_target": path["target_asset"]} for path in paths[:10]],
+            "centrality": centrality,
+            "choke_points": [item for item in centrality if item["kind"] == "choke_point"][:10],
+            "crown_jewel_exposure": [
+                {"target": path["target_asset"], "exposure": path["crown_jewel_exposure"], "before_risk": path["before_remediation_risk"], "after_risk": path["after_remediation_risk"]}
+                for path in paths if path["crown_jewel_exposure"] != "low"
+            ][:10],
+        },
+        "executive_views": executive_views,
         "decision_readiness": _decision_readiness(paths),
         "subject_maturity": _subject_maturity(paths, graph_model, len(findings)),
         "development_maturity": _development_maturity(paths, len(policies), len(simulations)),
@@ -148,22 +173,35 @@ def _path_record(path: list[str], chain: list[dict[str, Any]], nodes: dict[str, 
     before = _before_risk(chain, len(path), _asset_int(target, "criticality", 3), _asset_int(target, "data_sensitivity", 3))
     after = max(0, before - _risk_reduction(chain, simulations, policies))
     difficulty_score = _difficulty_score(chain, len(path), bool(start.get("internet_exposure")))
+    hops = [nodes[asset_id].get("label", asset_id) for asset_id in path if asset_id in nodes]
+    difficulty = _difficulty_band(difficulty_score)
+    breakers = _recommended_breakers(chain, bool(start.get("internet_exposure")), str(target.get("type", "")))
     return {
         "id": "-".join(path),
         "name": f"{start.get('label')} to {target.get('label')}",
         "entry_asset": start.get("label"),
         "target_asset": target.get("label"),
-        "hops": [nodes[asset_id].get("label", asset_id) for asset_id in path if asset_id in nodes],
+        "hops": hops,
         "chain": chain,
         "scanner_inputs": sorted({step["source"] for step in chain}),
-        "difficulty": _difficulty_band(difficulty_score),
+        "difficulty": difficulty,
         "difficulty_score": difficulty_score,
         "before_remediation_risk": before,
         "after_remediation_risk": after,
         "risk_delta": before - after,
         "likelihood": _clamp(100 - difficulty_score + 8 * len([step for step in chain if step["exploit_available"] or step["active_exploitation"]])),
         "business_impact": _clamp(_asset_int(target, "criticality", 3) * 12 + _asset_int(target, "data_sensitivity", 3) * 10 + before * 0.35),
-        "recommended_breakers": _recommended_breakers(chain, bool(start.get("internet_exposure")), str(target.get("type", ""))),
+        "shortest_hop_count": max(0, len(path) - 1),
+        "k_hop_blast_radius": len(set(path[1:])),
+        "centrality_score": 0,
+        "choke_points": hops[1:-1],
+        "crown_jewel_exposure": _crown_jewel_exposure(target),
+        "difficulty_explanation": _difficulty_explanation(difficulty_score, chain, len(path), bool(start.get("internet_exposure"))),
+        "control_simulations": _simulate_controls(chain, before),
+        "path_breaker_recommendations": _path_breakers(hops, chain, before, after, breakers),
+        "remediation_playbook": _remediation_playbook(chain, str(target.get("type", "")), str(target.get("environment", "")), before),
+        "evidence_pack": _evidence_pack(chain, before, after),
+        "recommended_breakers": breakers,
         "evidence_requirements": _evidence_requirements(chain),
         "validation_plan": _validation_plan(chain, str(target.get("label", target.get("name", "target")))),
         "customer_narrative": _customer_narrative(str(start.get("label")), str(target.get("label")), before, after),
@@ -257,7 +295,10 @@ def _chain_step(finding: dict[str, Any]) -> dict[str, Any]:
         "source": finding.get("source", "api"),
         "category": finding.get("category", "vulnerability"),
         "severity": finding.get("severity", "MEDIUM"),
+        "domain": _domain_from_category(finding.get("category", "vulnerability"), finding.get("source", "api")),
         "technique": metadata.get("attack_technique") or _map_technique(finding.get("category", "vulnerability")),
+        "normalized_scanner": _scanner_adapter(finding.get("source", "api")),
+        "exploit_preconditions": metadata.get("preconditions") if isinstance(metadata.get("preconditions"), list) else _preconditions(finding.get("category", "vulnerability")),
         "business_risk": round(float(finding.get("business_risk_score", 0))),
         "exploit_available": bool(finding.get("exploit_available")),
         "active_exploitation": bool(finding.get("active_exploitation")),
@@ -267,17 +308,76 @@ def _chain_step(finding: dict[str, Any]) -> dict[str, Any]:
 
 def _map_technique(category: str) -> str:
     value = category.lower()
-    if "iam" in value:
+    domain = _domain_from_category(value, "")
+    if domain == "iam":
         return "Valid Accounts / Permission Groups Discovery"
-    if "network" in value:
+    if domain == "network":
         return "External Remote Services / Network Service Discovery"
-    if "cloud" in value:
+    if domain == "cloud":
         return "Cloud Service Dashboard / Account Discovery"
-    if "container" in value or "kubernetes" in value:
+    if domain == "kubernetes":
         return "Container and Resource Discovery"
-    if "application" in value:
+    if domain == "application":
         return "Exploit Public-Facing Application"
+    if domain == "cicd":
+        return "CI/CD Pipeline Modification"
+    if domain == "secrets":
+        return "Unsecured Credentials"
+    if domain == "data_store":
+        return "Data from Information Repositories"
     return "Exploit Vulnerability"
+
+
+def _domain_from_category(category: str, source: str) -> str:
+    value = f"{category} {source}".lower()
+    if any(term in value for term in ["iam", "identity", "permission"]):
+        return "iam"
+    if any(term in value for term in ["kubernetes", "container", "k8s"]):
+        return "kubernetes"
+    if any(term in value for term in ["cloud", "aws", "azure", "gcp", "wiz", "prisma"]):
+        return "cloud"
+    if any(term in value for term in ["ci", "cd", "pipeline", "github"]):
+        return "cicd"
+    if any(term in value for term in ["secret", "credential", "token"]):
+        return "secrets"
+    if any(term in value for term in ["database", "data", "s3", "bucket"]):
+        return "data_store"
+    if any(term in value for term in ["application", "snyk", "code"]):
+        return "application"
+    if any(term in value for term in ["network", "firewall", "subnet", "tenable", "qualys"]):
+        return "network"
+    return "vulnerability"
+
+
+def _scanner_adapter(source: str) -> str:
+    key = "".join(char for char in source.lower() if char.isalnum())
+    adapters = {
+        "tenable": "Tenable VM adapter: plugin/CVE/CVSS/exploit flags mapped to canonical vulnerability findings",
+        "qualys": "Qualys VMDR adapter: QID/CVE/asset tags mapped to canonical vulnerability findings",
+        "wiz": "Wiz adapter: cloud graph issue, toxic combination, exposure, and cloud asset context normalized",
+        "prismacloud": "Prisma Cloud adapter: policy ID, cloud resource, account, and compliance context normalized",
+        "snyk": "Snyk adapter: package, container, IaC, and code issue context normalized",
+        "githubadvancedsecurity": "GitHub Advanced Security adapter: code scanning, secret scanning, and Dependabot alerts normalized",
+        "securityhub": "AWS Security Hub adapter: ASFF resource, control, severity, and workflow state normalized",
+        "defender": "Microsoft Defender adapter: exposure, endpoint, cloud, and identity recommendation normalized",
+        "crowdstrike": "CrowdStrike adapter: endpoint exposure, identity protection, and detection context normalized",
+    }
+    return adapters.get(key, f"{source or 'custom'} adapter: source payload normalized through canonical scanner contract")
+
+
+def _preconditions(category: str) -> list[str]:
+    domain = _domain_from_category(category, "")
+    common = {
+        "network": ["network access to exposed service", "reachable route between source and target", "service accepts unauthenticated or weakly authenticated traffic"],
+        "iam": ["valid principal or token scope", "permission boundary allows target action", "lateral movement path through role or group membership"],
+        "cloud": ["cloud API access", "resource policy allows action", "control-plane path to production account or project"],
+        "kubernetes": ["cluster API or workload access", "service account token or admission gap", "network path to workload or control plane"],
+        "application": ["user interaction or public endpoint", "vulnerable route or package reachable in runtime", "payload can reach sensitive operation"],
+        "cicd": ["repository or runner access", "pipeline token scope", "write path to build, artifact, or deployment job"],
+        "secrets": ["secret material exposed to user, process, log, or repository", "token is valid or replayable", "target service trusts the credential"],
+        "data_store": ["data-plane network reachability", "credential or IAM grant to data store", "object/table policy allows read or write"],
+    }
+    return common.get(domain, ["asset is reachable", "finding is exploitable in the observed environment", "target has business impact"])
 
 
 def _is_initial_access(finding: dict[str, Any]) -> bool:
@@ -310,6 +410,22 @@ def _difficulty_score(chain: list[dict[str, Any]], hops: int, exposed: bool) -> 
     return _clamp(55 + hops * 12 + category + exploit_ease + no_patch_ease + exposure)
 
 
+def _difficulty_explanation(score: int, chain: list[dict[str, Any]], hops: int, exposed: bool) -> list[str]:
+    reasons = [f"Difficulty score {score}/100 from {hops - 1} graph hops and {len(chain)} chained findings."]
+    reasons.append("Internet exposure lowers attacker effort." if exposed else "No direct internet exposure increases attacker effort.")
+    if any(step["active_exploitation"] for step in chain):
+        reasons.append("Active exploitation evidence lowers uncertainty and practical difficulty.")
+    if any(step["exploit_available"] for step in chain):
+        reasons.append("Public exploit availability lowers required attacker skill.")
+    if any(step["domain"] == "iam" for step in chain):
+        reasons.append("IAM/token preconditions increase difficulty unless valid credentials already exist.")
+    if any(step["domain"] == "network" for step in chain):
+        reasons.append("Network reachability preconditions are directly modeled as path edges.")
+    if any(not step["patch_available"] for step in chain):
+        reasons.append("Missing patch increases reliance on compensating controls and path breakers.")
+    return reasons
+
+
 def _difficulty_band(score: int) -> str:
     for threshold, band in DIFFICULTY_BANDS:
         if score >= threshold:
@@ -329,6 +445,92 @@ def _recommended_breakers(chain: list[dict[str, Any]], exposed: bool, target_typ
         breakers.add("Database route restriction to approved service identities")
     breakers.add("Simulation-backed before/after risk validation")
     return sorted(breakers)
+
+
+def _preferred_control(domain: str) -> str:
+    return {
+        "network": "microsegmentation deny rule",
+        "iam": "conditional IAM deny",
+        "cloud": "cloud policy guardrail",
+        "kubernetes": "admission controller or network policy",
+        "application": "WAF/API rule",
+        "cicd": "protected branch and runner isolation",
+        "secrets": "secret revocation and token scope rotation",
+        "data_store": "data-store access policy restriction",
+        "vulnerability": "patch or virtual patch",
+    }.get(domain, "segmentation or compensating control")
+
+
+def _simulate_controls(chain: list[dict[str, Any]], before: int) -> list[dict[str, Any]]:
+    controls = [
+        ("patch", lambda step: step["patch_available"], 28),
+        ("WAF rule", lambda step: step["domain"] in {"application", "network"}, 24),
+        ("IAM deny", lambda step: step["domain"] == "iam", 32),
+        ("segmentation", lambda step: step["domain"] in {"network", "data_store", "cloud"}, 30),
+        ("container rebuild", lambda step: step["domain"] == "kubernetes", 22),
+        ("cloud policy", lambda step: step["domain"] == "cloud", 26),
+    ]
+    results = []
+    for control, matcher, base in controls:
+        matched = len([step for step in chain if matcher(step)])
+        reduction = _clamp(base + matched * 8, 5, 85)
+        results.append({
+            "control": control,
+            "before_risk": before,
+            "after_risk": _clamp(before - reduction, 0, 100),
+            "risk_reduction": reduction,
+            "assumptions": [
+                f"{matched} chain steps match this control domain." if matched else "No direct domain match; control still modeled as compensating defense.",
+                "Control is simulated before execution and must be validated with scanner and reachability evidence.",
+                "Residual risk remains if alternate paths or credentials still exist.",
+            ],
+        })
+    return results
+
+
+def _path_breakers(hops: list[str], chain: list[dict[str, Any]], before: int, after: int, fallback: list[str]) -> list[dict[str, Any]]:
+    delta = before - after
+    recs = []
+    for index, hop in enumerate(hops[1:]):
+        step = chain[index] if index < len(chain) else chain[-1] if chain else None
+        control = _preferred_control(step["domain"]) if step else fallback[0] if fallback else "segmentation deny"
+        reduction = _clamp(delta * (0.7 if index == 0 else 0.45), 5, 95)
+        recs.append({
+            "edge": f"{hops[index]} -> {hop}",
+            "control": control,
+            "estimated_risk_reduction": reduction,
+            "why": f"Break this edge to remove {step['domain'] if step else 'reachability'} preconditions and reduce approximately {reduction}% of path risk.",
+        })
+    return recs or [{"edge": "entry -> target", "control": fallback[0] if fallback else "Simulation-backed path breaker", "estimated_risk_reduction": delta, "why": f"Break the highest-risk logical edge to reduce {delta}% projected path risk."}]
+
+
+def _remediation_playbook(chain: list[dict[str, Any]], target_type: str, environment: str, before: int) -> dict[str, Any]:
+    primary = sorted(chain, key=lambda step: step["business_risk"], reverse=True)[0]["domain"] if chain else "vulnerability"
+    change_risk = "high" if environment == "PRODUCTION" and before >= 75 else "medium" if environment == "PRODUCTION" else "low"
+    return {
+        "playbook_id": f"{primary}_{target_type.lower()}_{change_risk}".replace(" ", "_"),
+        "title": f"{primary.upper()} remediation for {target_type or 'asset'} in {environment or 'unknown'}",
+        "owner": "Identity platform owner" if primary == "iam" else "Cloud security owner" if primary == "cloud" else "Application owner" if primary == "application" else "Security remediation owner",
+        "change_risk": change_risk,
+        "steps": [
+            "Confirm asset owner and business service mapping.",
+            "Run before-state evidence collection and simulation.",
+            f"Apply {_preferred_control(primary)} or permanent remediation.",
+            "Route approval based on environment and change risk.",
+            "Validate scanner, reachability, and residual path risk after execution.",
+        ],
+    }
+
+
+def _evidence_pack(chain: list[dict[str, Any]], before: int, after: int) -> dict[str, Any]:
+    return {
+        "before_state": [f"{step['normalized_scanner']}: {step['title']}" for step in chain],
+        "simulation_result": [f"Before risk {before}%", f"After risk {after}%", *[f"{item['control']}: {item['risk_reduction']}% modeled reduction" for item in _simulate_controls(chain, before)[:3]]],
+        "approval": ["Business owner approval", "Security owner approval", "Change risk approval for production or crown-jewel paths"],
+        "execution_log": ["Dry-run command or ticket reference", "Control diff or package/version change", "Rollback plan reference"],
+        "validation": _validation_plan(chain, "target"),
+        "residual_risk": [f"Residual path risk {after}%", "Document accepted assumptions, alternate path checks, and remaining compensating controls"],
+    }
 
 
 def _evidence_requirements(chain: list[dict[str, Any]]) -> list[str]:
@@ -486,6 +688,93 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
         "nodes": sorted(nodes.values(), key=lambda node: int(node.get("risk", 0)), reverse=True)[:80],
         "edges": sorted(edges.values(), key=lambda edge: int(edge.get("weight", 0)), reverse=True)[:120],
         "vulnerability_chains": chains[:8],
+    }
+
+
+def _centrality(paths: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts: dict[str, dict[str, int]] = {}
+    for path in paths:
+        for index, hop in enumerate(path["hops"]):
+            current = counts.setdefault(hop, {"count": 0, "transit": 0, "max_risk": 0})
+            current["count"] += 1
+            current["transit"] += 1 if 0 < index < len(path["hops"]) - 1 else 0
+            current["max_risk"] = max(current["max_risk"], int(path["before_remediation_risk"]))
+    max_count = max([item["count"] + item["transit"] for item in counts.values()] or [1])
+    rows = [
+        {
+            "asset": asset,
+            "score": _percent(item["count"] + item["transit"], max_count),
+            "paths": item["count"],
+            "max_risk": item["max_risk"],
+            "kind": "choke_point" if item["transit"] and item["max_risk"] >= 60 else "asset",
+        }
+        for asset, item in counts.items()
+    ]
+    return sorted(rows, key=lambda item: (item["score"], item["max_risk"]), reverse=True)
+
+
+def _crown_jewel_exposure(target: dict[str, Any]) -> str:
+    if target.get("environment") == "PRODUCTION" and _asset_int(target, "criticality", 3) >= 5:
+        return "critical"
+    if target.get("environment") == "PRODUCTION" or _asset_int(target, "data_sensitivity", 3) >= 5 or _asset_int(target, "criticality", 3) >= 5:
+        return "high"
+    if _asset_int(target, "criticality", 3) >= 4 or _asset_int(target, "data_sensitivity", 3) >= 4:
+        return "medium"
+    return "low"
+
+
+def _scanner_normalization_adapters() -> list[dict[str, Any]]:
+    return [
+        {
+            "source": source,
+            "contract": _scanner_adapter(source),
+            "required_fields": ["asset identity", "severity", "category", "finding id", "status"],
+            "optional_fields": ["CVE/control id", "exploit availability", "active exploitation", "patch availability", "business tags"],
+            "output": "canonical finding, exploit preconditions, chain domain, remediation playbook hints",
+        }
+        for source in ["Tenable", "Qualys", "Wiz", "Prisma Cloud", "Snyk", "GitHub Advanced Security", "AWS Security Hub", "Defender", "CrowdStrike"]
+    ]
+
+
+def _vulnerability_chaining_rules() -> list[dict[str, Any]]:
+    return [
+        {"domain": "network", "chains_when": ["internet exposure", "reachable service", "weak segmentation"], "breaker": "microsegmentation deny or WAF/API rule"},
+        {"domain": "iam", "chains_when": ["valid token scope", "privilege escalation", "cross-account trust"], "breaker": "conditional IAM deny or just-in-time approval"},
+        {"domain": "cloud", "chains_when": ["public control-plane exposure", "misconfigured resource policy", "production account reachability"], "breaker": "cloud policy guardrail"},
+        {"domain": "kubernetes", "chains_when": ["service account token", "workload escape", "cluster API reachability"], "breaker": "admission control, network policy, or rebuild"},
+        {"domain": "application", "chains_when": ["public endpoint", "vulnerable package or route", "sensitive operation"], "breaker": "patch or WAF/API rule"},
+        {"domain": "cicd", "chains_when": ["repo write path", "runner trust", "deployment token"], "breaker": "branch protection and runner isolation"},
+        {"domain": "secrets", "chains_when": ["exposed credential", "valid token", "trusted target service"], "breaker": "revocation and secret rotation"},
+        {"domain": "data_store", "chains_when": ["data-plane route", "grant or credential", "sensitive collection"], "breaker": "data-store policy restriction"},
+    ]
+
+
+def _executive_views(paths: list[dict[str, Any]]) -> dict[str, Any]:
+    closed = len([path for path in paths if path["after_remediation_risk"] < 35])
+    return {
+        "top_business_services_at_risk": [
+            {
+                "service": path["target_asset"],
+                "entry": path["entry_asset"],
+                "before_risk": path["before_remediation_risk"],
+                "after_risk": path["after_remediation_risk"],
+                "difficulty": path["difficulty"],
+                "crown_jewel_exposure": path["crown_jewel_exposure"],
+            }
+            for path in paths[:10]
+        ],
+        "risk_reduced_this_week": sum(path["risk_delta"] for path in paths),
+        "blocked_remediations": [
+            {
+                "path": path["name"],
+                "blocker": path["path_breaker_recommendations"][0]["control"] if path["path_breaker_recommendations"] else "approval or compensating control required",
+                "residual_risk": path["after_remediation_risk"],
+            }
+            for path in paths
+            if path["priority"] == "immediate" and path["after_remediation_risk"] >= 50
+        ],
+        "attack_paths_closed": closed,
+        "narrative": f"{closed} attack paths are modeled below residual-risk threshold after recommended controls." if closed else "No attack paths are fully closed yet; approve the top path breakers to reduce residual risk.",
     }
 
 

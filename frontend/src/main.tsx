@@ -222,6 +222,48 @@ function AttackPaths({ refresh, bump }: PageProps) {
         </section>
       </section>
       <AttackGraphView model={model} />
+      <section className="grid cols-2">
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>Graph Algorithms</h2>
+              <p>Shortest exploitable paths, k-hop blast radius, centrality, choke points, and crown-jewel exposure.</p>
+            </div>
+            <Badge value={`${model?.graph_algorithms?.choke_points?.length ?? 0} choke points`} />
+          </div>
+          <table>
+            <thead><tr><th>name</th><th>hops</th><th>risk</th><th>difficulty</th></tr></thead>
+            <tbody>
+              {(model?.graph_algorithms?.shortest_exploitable_paths || []).map((path: any) => (
+                <tr key={path.path_id}>
+                  <td>{path.name}</td>
+                  <td>{path.hops}</td>
+                  <td>{path.risk}%</td>
+                  <td><Badge value={path.difficulty} /></td>
+                </tr>
+              ))}
+              {(model?.graph_algorithms?.shortest_exploitable_paths || []).length === 0 && <tr><td colSpan={4}>No paths yet.</td></tr>}
+            </tbody>
+          </table>
+        </section>
+        <section className="panel">
+          <div className="panel-head">
+            <div>
+              <h2>Executive View</h2>
+              <p>Business services at risk, risk reduced this week, blocked remediations, and attack paths closed.</p>
+            </div>
+            <Badge value={`${model?.executive_views?.attack_paths_closed ?? 0} closed`} />
+          </div>
+          <table>
+            <tbody>
+              <tr><td>risk_reduced_this_week</td><td>{model?.executive_views?.risk_reduced_this_week ?? 0}%</td></tr>
+              <tr><td>blocked_remediations</td><td>{model?.executive_views?.blocked_remediations?.length ?? 0}</td></tr>
+              <tr><td>top_service_at_risk</td><td>{model?.executive_views?.top_business_services_at_risk?.[0]?.service ?? "none"}</td></tr>
+              <tr><td>narrative</td><td>{model?.executive_views?.narrative ?? "No executive view yet."}</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </section>
       <ChainGraphView chains={model?.vulnerability_chain_graph || []} />
       <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority", "customer_narrative"]} />
       <Json value={model?.construction_method || {}} />
