@@ -3,8 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from datetime import datetime, timezone, timedelta
-from typing import Any
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import httpx
@@ -184,18 +183,18 @@ def provider_status() -> list[dict]:
     return [{"provider": "deterministic", "configured": True, "model": "rules-engine"}, {"provider": "openai_compatible", "configured": bool(settings.llm_base_url and settings.llm_api_key), "model": settings.llm_model or "configured-model"}, {"provider": "local_slm", "configured": bool(settings.local_slm_url), "model": settings.local_slm_model or "local-small-language-model"}]
 
 
-def select_provider(preferred: str | None = None) -> str:
-    providers = provider_status()
-    if preferred and any(p["provider"] == preferred and p["configured"] for p in providers):
-        return preferred
-    configured = next((p for p in providers if p["provider"] != "deterministic" and p["configured"]), None)
-    return configured["provider"] if configured else "deterministic"
+def deterministic(prompt: str, started: float, reason: str | None = None) -> dict:
+    focus = "Prioritize virtual patching and attack-path interruption before permanent change." if "virtual" in prompt.lower() or "path" in prompt.lower() else "Prioritize risk reduction with approval and evidence gates."
+    output = focus + "\n1. Gather tenant risk context.\n2. Run simulation before execution.\n3. Generate rollback, validation, and evidence requirements.\n4. Route approvals.\n5. Keep execution dry-run until credentials and policy approvals are verified."
+    if reason:
+        output += f"\n\nModel gateway fallback reason: {reason}"
+    return {"provider": "deterministic", "model": "rules-engine", "output": output, "used_external_model": False, "latency_ms": int((time.time() - started) * 1000)}
 
 
 async def complete_with_model(system: str, prompt: str, preferred: str | None = None) -> dict:
     started = time.time()
-    provider = select_provider(preferred)
-    if provider == "openai_compatible":
+    provider = preferred if preferred in {"openai_compatible", "local_slm"} else "deterministic"
+    if provider == "openai_compatible" and settings.llm_base_url and settings.llm_api_key:
         try:
             async with httpx.AsyncClient(timeout=30) as http:
                 response = await http.post(f"{settings.llm_base_url.rstrip('/')}/chat/completions", headers={"authorization": f"Bearer {settings.llm_api_key}"}, json={"model": settings.llm_model, "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}], "temperature": 0.1})
@@ -207,12 +206,67 @@ async def complete_with_model(system: str, prompt: str, preferred: str | None = 
     return deterministic(prompt, started)
 
 
-def deterministic(prompt: str, started: float, reason: str | None = None) -> dict:
-    focus = "Prioritize virtual patching and attack-path interruption before permanent change." if "virtual" in prompt.lower() or "path" in prompt.lower() else "Prioritize risk reduction with approval and evidence gates."
-    output = focus + "\n1. Gather tenant risk context.\n2. Run simulation before execution.\n3. Generate rollback, validation, and evidence requirements.\n4. Route approvals.\n5. Keep execution dry-run until credentials and policy approvals are verified."
-    if reason:
-        output += f"\n\nModel gateway fallback reason: {reason}"
-    return {"provider": "deterministic", "model": "rules-engine", "output": output, "used_external_model": False, "latency_ms": int((time.time() - started) * 1000)}
+def technique(category: str) -> str:
+    text = category.lower()
+    if "iam" in text: return "Valid Accounts / Permission Groups Discovery"
+    if "network" in text: return "External Remote Services / Network Service Discovery"
+    if "cloud" in text: return "Cloud Service Dashboard / Account Discovery"
+    if "container" in text or "kubernetes" in text: return "Container and Resource Discovery"
+    if "application" in text: return "Exploit Public-Facing Application"
+    return "Exploit Vulnerability"
+
+
+def clamp(value: float, low: int = 1, high: int = 100) -> int:
+    return max(low, min(high, round(value)))
+
+
+def band(score: int) -> str:
+    return "VERY_HIGH" if score >= 80 else "HIGH" if score >= 60 else "MEDIUM" if score >= 35 else "LOW"
+
+
+def chain_step(f: dict) -> dict:
+    meta = f.get("metadata", {}) or {}
+    return {"finding_id": f.get("_id"), "asset_id": f.get("asset_id"), "title": f.get("title"), "source": f.get("source", "api"), "category": f.get("category", "vulnerability"), "severity": f.get("severity", "MEDIUM"), "technique": meta.get("attack_technique") or technique(f.get("category", "vulnerability")), "business_risk": round(f.get("business_risk_score", 0)), "exploit_available": bool(f.get("exploit_available")), "active_exploitation": bool(f.get("active_exploitation")), "patch_available": bool(f.get("patch_available"))}
+
+
+def score_path(chain: list[dict], hops: int, target: dict, exposed: bool, policies: int, sim_avg: float) -> dict:
+    avg = sum(s["business_risk"] for s in chain) / max(1, len(chain))
+    before = clamp(avg * 0.55 + 7 * sum(s["exploit_available"] for s in chain) + 10 * sum(s["active_exploitation"] for s in chain) + target.get("criticality", 3) * 8 + target.get("data_sensitivity", 3) * 6 + max(0, 18 - hops * 3))
+    reduction = clamp(12 + 8 * sum(s["patch_available"] for s in chain) + 6 * sum((not s["patch_available"]) or "network" in s["category"].lower() or "iam" in s["category"].lower() for s in chain) + min(18, sim_avg * 0.15) + min(12, policies * 2), 5, 85)
+    after = max(0, before - reduction)
+    difficulty = clamp(55 + hops * 12 - 8 * sum(s["exploit_available"] or s["active_exploitation"] for s in chain) - 4 * sum(not s["patch_available"] for s in chain) + (-14 if exposed else 8))
+    return {"before_remediation_risk": before, "after_remediation_risk": after, "risk_delta": before - after, "difficulty_score": difficulty, "difficulty": band(difficulty), "likelihood": clamp(100 - difficulty), "business_impact": clamp(target.get("criticality", 3) * 12 + target.get("data_sensitivity", 3) * 10 + before * 0.35)}
+
+
+async def attack_path_model(database: AsyncIOMotorDatabase, tenant_id: str) -> dict:
+    assets = await database.assets.find({"tenant_id": tenant_id}).to_list(300)
+    findings = await database.findings.find({"tenant_id": tenant_id, "status": "OPEN"}).sort("business_risk_score", -1).to_list(500)
+    simulations = await database.simulations.find({"tenant_id": tenant_id}).to_list(300)
+    policies = await database.policies.count_documents({"tenant_id": tenant_id, "enabled": True})
+    by_asset: dict[str, list[dict]] = {}
+    for f in findings:
+        if f.get("asset_id"):
+            by_asset.setdefault(f["asset_id"], []).append(f)
+    starts = [a for a in assets if a.get("internet_exposure") or any(f.get("source", "").lower() in ["tenable", "qualys", "wiz", "snyk", "securityhub"] for f in by_asset.get(a["_id"], []))]
+    targets = [a for a in assets if a.get("environment") == "PRODUCTION" or a.get("criticality", 3) >= 4 or a.get("data_sensitivity", 3) >= 4]
+    sim_avg = sum(s.get("risk_reduction_estimate", 0) for s in simulations) / max(1, len(simulations))
+    paths = []
+    for start in starts[:25]:
+        for target in targets[:25]:
+            if start["_id"] == target["_id"]:
+                continue
+            chain = [chain_step(f) for f in (by_asset.get(start["_id"], [])[:2] + by_asset.get(target["_id"], [])[:2])]
+            if not chain:
+                continue
+            scores = score_path(chain, 2, target, bool(start.get("internet_exposure")), policies, sim_avg)
+            breakers = {"Simulation-backed before/after risk validation"}
+            if start.get("internet_exposure"): breakers.add("WAF/API gateway virtual patch at entry point")
+            if any("iam" in s["category"].lower() for s in chain): breakers.add("Conditional IAM deny with just-in-time approval")
+            if any("network" in s["category"].lower() for s in chain): breakers.add("Microsegmentation deny between path hops")
+            paths.append({"id": f"{start['_id']}-{target['_id']}", "name": f"{start['name']} to {target['name']}", "entry_asset": start["name"], "target_asset": target["name"], "hops": [start["name"], target["name"]], "chain": chain, "scanner_inputs": sorted({s["source"] for s in chain}), "recommended_breakers": sorted(breakers), "priority": "immediate" if scores["before_remediation_risk"] >= 85 or scores["risk_delta"] >= 45 else "high" if scores["before_remediation_risk"] >= 70 else "scheduled" if scores["before_remediation_risk"] >= 45 else "monitor", **scores})
+    paths = sorted(paths, key=lambda p: p["before_remediation_risk"], reverse=True)[:25]
+    avg = lambda values: round(sum(values) / len(values)) if values else 0
+    return {"generated_by": "scanner-normalized-attack-path-engine", "construction_method": {"method": "Logical attack graph with bounded path enumeration", "inputs": ["scanner findings", "asset inventory", "exposure", "exploit availability", "active exploitation", "patch availability", "production and crown-jewel context", "simulation and policy controls"], "research_basis": ["MulVAL-style logical vulnerability analysis", "topological attack graph reachability", "exploit-dependency path construction", "Bayesian attack graph before/after risk intuition"]}, "summary": {"attack_paths": len(paths), "critical_paths": len([p for p in paths if p["before_remediation_risk"] >= 80]), "average_before_risk": avg([p["before_remediation_risk"] for p in paths]), "average_after_risk": avg([p["after_remediation_risk"] for p in paths]), "average_risk_reduction": avg([p["risk_delta"] for p in paths]), "scanner_inputs": sorted({s for p in paths for s in p["scanner_inputs"]})}, "paths": paths}
 
 
 @app.get("/")
@@ -228,7 +282,7 @@ async def health(database: AsyncIOMotorDatabase = Depends(db)):
 
 @app.post("/api/mock-ingest")
 async def mock_ingest(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
-    findings = [{"source": "tenable", "source_id": "CVE-2026-0001", "title": "Internet exposed admin service", "severity": "CRITICAL", "category": "network_policy", "patch_available": False, "exploit_available": True, "active_exploitation": True, "asset": {"external_id": "prod-admin-01", "name": "prod-admin-01", "type": "VM", "environment": "PRODUCTION", "criticality": 5, "data_sensitivity": 4, "internet_exposure": True}}, {"source": "wiz", "source_id": "IAM-001", "title": "Over-privileged production role", "severity": "HIGH", "category": "iam_policy", "patch_available": True, "asset": {"external_id": "iam-prod-deploy", "name": "iam-prod-deploy", "type": "IAM_ROLE", "environment": "PRODUCTION", "criticality": 4, "data_sensitivity": 4}}]
+    findings = [{"source": "tenable", "title": "Internet exposed admin service", "severity": "CRITICAL", "category": "network_policy", "patch_available": False, "exploit_available": True, "active_exploitation": True, "asset": {"external_id": "prod-admin-01", "name": "prod-admin-01", "type": "VM", "environment": "PRODUCTION", "criticality": 5, "data_sensitivity": 4, "internet_exposure": True}}, {"source": "wiz", "title": "Over-privileged production role", "severity": "HIGH", "category": "iam_policy", "patch_available": True, "asset": {"external_id": "iam-prod-deploy", "name": "iam-prod-deploy", "type": "IAM_ROLE", "environment": "PRODUCTION", "criticality": 4, "data_sensitivity": 4}}]
     return await ingest(database, t["_id"], findings, "mock")
 
 
@@ -256,6 +310,20 @@ async def findings(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = D
     return {"findings": await database.findings.find({"tenant_id": t["_id"]}).sort("business_risk_score", -1).to_list(500)}
 
 
+@app.get("/api/attack-paths")
+async def attack_paths(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
+    return {"attack_paths": await attack_path_model(database, t["_id"])}
+
+
+@app.post("/api/attack-paths")
+async def snapshot_attack_paths(payload: dict | None = None, t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
+    model = await attack_path_model(database, t["_id"])
+    report = {"_id": oid(), "tenant_id": t["_id"], "name": "Attack path analytics", "type": "attack_path_analytics", "created_by": "attack-path-engine", "data": model, "created_at": now()}
+    await database.report_snapshots.insert_one(report)
+    await audit(database, t["_id"], "attack-path-engine", "attack_path_analytics_generated", "report", report["_id"], model["summary"])
+    return {"report": report, "attack_paths": model}
+
+
 @app.get("/api/remediation-actions")
 async def actions(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     return {"actions": await database.remediation_actions.find({"tenant_id": t["_id"]}).sort("updated_at", -1).to_list(500)}
@@ -264,11 +332,8 @@ async def actions(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = De
 @app.post("/api/remediation-actions/{action_id}/simulate")
 async def simulate(action_id: str, t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     action = await database.remediation_actions.find_one({"_id": action_id, "tenant_id": t["_id"]})
-    if not action:
-        raise HTTPException(404, "action not found")
-    finding = await database.findings.find_one({"_id": action["finding_id"]})
-    operational = 35 + (10 if finding and finding.get("severity") == "CRITICAL" else 0)
-    sim = {"_id": oid(), "tenant_id": t["_id"], "remediation_action_id": action_id, "type": "standard", "status": "COMPLETED", "confidence": 84, "risk_reduction_estimate": round(action.get("expected_risk_reduction", 40), 2), "operational_risk": operational, "result": {"rollback_required": True, "approval_required": True}, "created_at": now()}
+    if not action: raise HTTPException(404, "action not found")
+    sim = {"_id": oid(), "tenant_id": t["_id"], "remediation_action_id": action_id, "type": "standard", "status": "COMPLETED", "confidence": 84, "risk_reduction_estimate": round(action.get("expected_risk_reduction", 40), 2), "operational_risk": 35, "result": {"rollback_required": True, "approval_required": True}, "created_at": now()}
     await database.simulations.insert_one(sim)
     await database.remediation_actions.update_one({"_id": action_id}, {"$set": {"status": "SIMULATED", "updated_at": now()}})
     await audit(database, t["_id"], "simulation-engine", "simulation_completed", "simulation", sim["_id"])
@@ -278,9 +343,8 @@ async def simulate(action_id: str, t: dict = Depends(tenant), database: AsyncIOM
 @app.post("/api/remediation-actions/{action_id}/plan")
 async def plan(action_id: str, t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     action = await database.remediation_actions.find_one({"_id": action_id, "tenant_id": t["_id"]})
-    if not action:
-        raise HTTPException(404, "action not found")
-    doc = {"_id": oid(), "tenant_id": t["_id"], "remediation_action_id": action_id, "title": f"Plan for {action['title']}", "rollout_steps": ["Confirm owner and change window", "Run simulation", "Canary rollout", "Monitor", "Expand"], "rollback_steps": ["Restore previous state", "Validate service health"], "validation_steps": ["Confirm finding closure", "Attach evidence"], "evidence_required": ["before state", "simulation", "approval", "execution log", "validation"], "created_at": now()}
+    if not action: raise HTTPException(404, "action not found")
+    doc = {"_id": oid(), "tenant_id": t["_id"], "remediation_action_id": action_id, "title": f"Plan for {action['title']}", "rollout_steps": ["Confirm owner", "Run simulation", "Canary rollout", "Monitor", "Expand"], "rollback_steps": ["Restore previous state", "Validate service health"], "validation_steps": ["Confirm finding closure", "Attach evidence"], "evidence_required": ["before state", "simulation", "approval", "execution log", "validation"], "created_at": now()}
     await database.remediation_plans.insert_one(doc)
     await database.remediation_actions.update_one({"_id": action_id}, {"$set": {"status": "PLANNED", "updated_at": now()}})
     return {"plan": doc}
@@ -297,8 +361,7 @@ async def workflow(action_id: str, t: dict = Depends(tenant), database: AsyncIOM
 async def virtual_patching(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     findings = await database.findings.find({"tenant_id": t["_id"], "status": "OPEN"}).sort("business_risk_score", -1).to_list(200)
     assets = {a["_id"]: a for a in await database.assets.find({"tenant_id": t["_id"]}).to_list(200)}
-    candidates = []
-    breakers = []
+    candidates, breakers = [], []
     for f in findings:
         asset = assets.get(f.get("asset_id"))
         if (asset and asset.get("internet_exposure")) or not f.get("patch_available") or f.get("business_risk_score", 0) >= 75:
@@ -320,19 +383,17 @@ async def activate_virtual(t: dict = Depends(tenant), database: AsyncIOMotorData
 @app.get("/api/agentic")
 async def agentic(t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     providers = provider_status()
-    policies = await database.policies.count_documents({"tenant_id": t["_id"]})
-    simulations = await database.simulations.count_documents({"tenant_id": t["_id"]})
-    workflows = await database.workflow_items.count_documents({"tenant_id": t["_id"]})
     virtual = await virtual_patching(t, database)
-    readiness = min(100, 35 + (15 if any(p["provider"] != "deterministic" and p["configured"] for p in providers) else 0) + min(15, policies * 2) + min(15, simulations) + min(10, workflows))
-    return {"agentic": {"readiness_score": readiness, "status": "agentic_ready" if readiness >= 85 else "human_supervised_ready" if readiness >= 65 else "needs_model_or_policy_setup", "providers": providers, "tool_registry": [{"name": "run_simulation", "mode": "safe", "risk": "low"}, {"name": "activate_virtual_patch", "mode": "dry_run_default", "risk": "medium"}, {"name": "route_approval", "mode": "human_required", "risk": "medium"}, {"name": "execute_connector", "mode": "dry_run_default", "risk": "high"}], "safety_rails": ["No live execution without credentials and policy approval", "Production assets require simulation, rollback, evidence, and approval", "Secrets never enter prompts"], "context": virtual["summary"], "recent_agent_runs": await database.report_snapshots.find({"tenant_id": t["_id"], "type": "agentic_plan"}).sort("created_at", -1).to_list(10)}}
+    paths = await attack_path_model(database, t["_id"])
+    readiness = min(100, 35 + min(20, paths["summary"]["attack_paths"] * 4) + min(15, await database.policies.count_documents({"tenant_id": t["_id"]}) * 2))
+    return {"agentic": {"readiness_score": readiness, "status": "human_supervised_ready" if readiness >= 65 else "needs_model_or_policy_setup", "providers": providers, "tool_registry": [{"name": "run_simulation", "mode": "safe", "risk": "low"}, {"name": "activate_virtual_patch", "mode": "dry_run_default", "risk": "medium"}, {"name": "analyze_attack_paths", "mode": "read_only", "risk": "low"}, {"name": "execute_connector", "mode": "dry_run_default", "risk": "high"}], "safety_rails": ["No live execution without credentials and policy approval", "Production assets require simulation, rollback, evidence, and approval", "Secrets never enter prompts"], "context": {"virtual": virtual["summary"], "attack_paths": paths["summary"]}, "recent_agent_runs": await database.report_snapshots.find({"tenant_id": t["_id"], "type": "agentic_plan"}).sort("created_at", -1).to_list(10)}}
 
 
 @app.post("/api/agentic")
 async def run_agentic(payload: dict, t: dict = Depends(tenant), database: AsyncIOMotorDatabase = Depends(db)):
     model = await agentic(t, database)
     completion = await complete_with_model("You are Remediation Twin's governed remediation agent.", f"Goal: {payload.get('goal', 'prioritize')} Context: {model['agentic']['context']} Request: {payload.get('prompt', '')}", payload.get("provider"))
-    plan = {"summary": completion["output"], "execution_mode": "dry_run_default", "steps": [{"tool": "run_simulation", "status": "recommended"}, {"tool": "activate_virtual_patch", "status": "recommended"}, {"tool": "route_approval", "status": "required_before_live"}]}
+    plan = {"summary": completion["output"], "execution_mode": "dry_run_default", "steps": [{"tool": "analyze_attack_paths", "status": "required"}, {"tool": "run_simulation", "status": "recommended"}, {"tool": "activate_virtual_patch", "status": "recommended"}, {"tool": "route_approval", "status": "required_before_live"}]}
     report = {"_id": oid(), "tenant_id": t["_id"], "name": "Agentic remediation plan", "type": "agentic_plan", "created_by": completion["provider"], "data": {"completion": completion, "plan": plan}, "created_at": now()}
     await database.report_snapshots.insert_one(report)
     await audit(database, t["_id"], "agentic-orchestrator", "agentic_plan_created", "report", report["_id"])
