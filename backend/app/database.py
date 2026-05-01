@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
 from app.config import get_settings
@@ -34,7 +35,7 @@ def get_db() -> AsyncIOMotorDatabase:
 
 
 @asynccontextmanager
-async def lifespan() -> AsyncIterator[None]:
+async def lifespan(_: Any) -> AsyncIterator[None]:
     await connect_mongo()
     try:
         yield
@@ -56,4 +57,3 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.report_snapshots.create_index([("tenant_id", ASCENDING), ("created_at", DESCENDING)])
     await db.connector_runs.create_index([("tenant_id", ASCENDING), ("created_at", DESCENDING)])
     await db.policies.create_index([("tenant_id", ASCENDING), ("policy_type", ASCENDING)])
-
