@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.dependencies import database, tenant_context
 from app.models import Tenant
 from app.services.dashboard import asset_graph, dashboard
+from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_model
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
 from app.services.production_effectiveness import build_production_effectiveness_model
@@ -38,6 +39,11 @@ async def get_dashboard(tenant: Tenant = Depends(tenant_context), db: AsyncIOMot
 @router.get("/asset-graph")
 async def get_asset_graph(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
     return await asset_graph(db, tenant.id)
+
+
+@router.get("/cyber-risk-intelligence")
+async def cyber_risk_intelligence():
+    return {"intelligence": build_cyber_risk_intelligence_model()}
 
 
 @router.get("/observability")

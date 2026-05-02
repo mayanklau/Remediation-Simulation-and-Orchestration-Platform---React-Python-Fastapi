@@ -28,6 +28,7 @@ type RouteKey =
   | "assets"
   | "graph"
   | "attackPaths"
+  | "riskIntel"
   | "remediation"
   | "simulations"
   | "workflows"
@@ -51,7 +52,8 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "findings", label: "Findings", icon: ShieldAlert },
       { key: "assets", label: "Assets", icon: Boxes },
       { key: "graph", label: "Asset Graph", icon: Network },
-      { key: "attackPaths", label: "Attack Paths", icon: Network }
+      { key: "attackPaths", label: "Attack Paths", icon: Network },
+      { key: "riskIntel", label: "Risk Intel", icon: Shield }
     ]
   },
   {
@@ -496,6 +498,45 @@ function Remediation({ refresh, bump }: PageProps) {
   );
 }
 
+function RiskIntel({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/cyber-risk-intelligence", refresh);
+  const intelligence = data?.intelligence;
+  return (
+    <>
+      <Header eyebrow="Advanced subject matter" title="Cyber Risk Intelligence" description="Exploit intelligence, business-service risk, threat-informed prioritization, remediation economics, exception governance, control validation, and executive narratives." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Capabilities" value={intelligence?.summary?.capabilities ?? 0} />
+        <Metric label="Economics" value={intelligence?.summary?.economics_metrics ?? 0} />
+        <Metric label="Narratives" value={intelligence?.summary?.executive_narratives ?? 0} />
+        <Metric label="Score" value={`${intelligence?.summary?.intelligence_score ?? 0}%`} />
+      </section>
+      <section className="grid cols-2">
+        {(intelligence?.capabilities || []).map((item: any) => (
+          <div className="panel" key={item.id}>
+            <div className="panel-head">
+              <div><h2>{item.name}</h2><p>{item.subject_area}</p></div>
+              <Badge value={item.status} />
+            </div>
+            <table>
+              <tbody>
+                <tr><td>Production use</td><td>{item.production_use}</td></tr>
+                <tr><td>Inputs</td><td>{(item.inputs || []).join(", ")}</td></tr>
+                <tr><td>Outputs</td><td>{(item.outputs || []).join(", ")}</td></tr>
+                <tr><td>Decision</td><td>{item.decision}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+      <section className="grid cols-2">
+        <Table title="Risk Economics" rows={intelligence?.economics || []} columns={["name", "formula", "business_use", "status"]} />
+        <Table title="Executive Narratives" rows={intelligence?.narratives || []} columns={["title", "audience", "message"]} />
+      </section>
+    </>
+  );
+}
+
 function Simulations({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/simulations", refresh);
   return <><Header eyebrow="What-if execution" title="Simulations" description="Risk reduction, operational risk, confidence, blast radius, and rollback requirements." /><Table rows={data?.simulations || []} columns={["type", "status", "confidence", "risk_reduction_estimate", "operational_risk"]} /></>;
@@ -813,6 +854,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

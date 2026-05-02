@@ -36,6 +36,7 @@ ROUTE_PERMISSIONS: list[tuple[Pattern[str], set[str], str]] = [
     (compile(r"^/api/virtual-patching$"), {"POST"}, "automation:run"),
     (compile(r"^/api/attack-paths$"), {"GET"}, "finding:read"),
     (compile(r"^/api/attack-paths$"), {"POST"}, "report:read"),
+    (compile(r"^/api/cyber-risk-intelligence$"), {"GET"}, "report:read"),
     (compile(r"^/api/agentic$"), {"GET"}, "report:read"),
     (compile(r"^/api/agentic$"), {"POST"}, "automation:run"),
     (compile(r"^/api/policies$"), {"GET"}, "policy:read"),

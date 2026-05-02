@@ -42,6 +42,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
 - Asset inventory with environment, type, exposure, criticality, and data sensitivity.
 - Graph-native vulnerability chaining and attack-path analytics across scanner-normalized inputs.
+- Advanced cyber-risk intelligence with exploit intelligence fusion, business-service risk graph, attack-path confidence, exposure management, change-risk modeling, remediation strategy selection, control-effectiveness validation, threat-informed prioritization, crown-jewel governance, exception governance, campaign intelligence, continuous validation, scanner trust scoring, playbook marketplace, risk economics, and executive narratives.
 - Business-risk scoring that accounts for severity, exploitability, active exploitation, patch availability, internet exposure, asset criticality, and data sensitivity.
 - Attack-path difficulty scoring and before/after remediation risk for customer-facing decision support.
 - Remediation queue with simulation, plan generation, approval workflow, and status transitions.
@@ -102,14 +103,15 @@ EY Remediation Twin creates a governed operating layer for:
 8. Users generate rollout, rollback, validation, and evidence plans.
 9. Users create approval workflows for governed execution.
 10. Attack-path analytics chain vulnerabilities from exposed entry points to production or crown-jewel targets.
-11. Virtual patching recommends compensating controls and path breakers.
-12. Agentic planning creates a governed tool plan with dry-run defaults.
-13. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.
-14. Enterprise readiness maps every required control to implemented, contract-ready, or external-setup-required status.
-15. Production expansion tracks the remaining enterprise product modules with APIs, workflows, evidence, gates, and owners.
-16. Production effectiveness verifies queue reliability, data quality, validation loops, evidence sealing, and observability.
-17. Go-live checks guide the final customer deployment and rollback path.
-18. Reports and audit logs preserve decision history.
+11. Cyber-risk intelligence explains exploit probability, business-service exposure, path confidence, remediation economics, exceptions, validation, and executive narratives.
+12. Virtual patching recommends compensating controls and path breakers.
+13. Agentic planning creates a governed tool plan with dry-run defaults.
+14. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.
+15. Enterprise readiness maps every required control to implemented, contract-ready, or external-setup-required status.
+16. Production expansion tracks the remaining enterprise product modules with APIs, workflows, evidence, gates, and owners.
+17. Production effectiveness verifies queue reliability, data quality, validation loops, evidence sealing, and observability.
+18. Go-live checks guide the final customer deployment and rollback path.
+19. Reports and audit logs preserve decision history.
 
 ## Attack Path Analytics
 

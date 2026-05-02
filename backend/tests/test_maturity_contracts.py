@@ -2,6 +2,7 @@ import pytest
 from app.auth import Principal, can, require_permission
 from app.config import Settings
 from app.workers import QueueJob, plan_for_lane
+from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_model
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
 from app.services.production_effectiveness import build_production_effectiveness_model
@@ -32,6 +33,7 @@ def test_route_permission_contract_covers_enterprise_surfaces():
     assert route_permission_for("/api/findings", "GET") == "finding:read"
     assert route_permission_for("/api/remediation-actions/action-1/simulate", "POST") == "simulation:run"
     assert route_permission_for("/api/attack-paths", "POST") == "report:read"
+    assert route_permission_for("/api/cyber-risk-intelligence", "GET") == "report:read"
     assert route_permission_for("/api/connectors", "GET") == "connector:read"
     assert route_permission_for("/api/connectors", "POST") == "connector:run"
     assert route_permission_for("/api/connectors/live", "POST") == "connector:run"
@@ -71,6 +73,15 @@ def test_production_effectiveness_covers_validation_and_dead_letters():
     assert model["summary"]["data_quality_controls"] >= 8
     assert "after_scan" in [item["id"] for item in model["validation_loop"]]
     assert "dead_letters" in [item["id"] for item in model["observability_signals"]]
+
+
+def test_cyber_risk_intelligence_covers_subject_matter_features():
+    model = build_cyber_risk_intelligence_model()
+    ids = [item["id"] for item in model["capabilities"]]
+    assert "exploit_intel_fusion" in ids
+    assert "control_effectiveness" in ids
+    assert "exception_governance" in ids
+    assert "risk_reduced_per_hour" in [item["id"] for item in model["economics"]]
 
 
 def test_rbac_keeps_auditors_read_only():
