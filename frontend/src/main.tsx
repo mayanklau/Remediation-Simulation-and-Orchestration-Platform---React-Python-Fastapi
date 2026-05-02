@@ -106,15 +106,15 @@ function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span>R</span>
+          <span>EY</span>
           <div>
-            <strong>Remediation Twin</strong>
-            <small>Attack-path operating system</small>
+            <strong>EY Remediation Twin</strong>
+            <small>Attack-path command center</small>
           </div>
         </div>
         <div className="side-card">
-          <div><Shield size={16} /><strong>Production Control</strong></div>
-          <p>Tenant guarded, simulation first, evidence required.</p>
+          <div><Shield size={16} /><strong>EY Control Tower</strong></div>
+          <p>Tenant guarded, simulation first, evidence always ready.</p>
         </div>
         <nav>
           {navGroups.map((group) => (

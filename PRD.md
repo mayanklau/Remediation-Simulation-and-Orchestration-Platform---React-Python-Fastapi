@@ -1,8 +1,8 @@
-# Product Requirements Document: Remediation Twin React + FastAPI
+# Product Requirements Document: EY Remediation Twin React + FastAPI
 
 ## 1. Product Summary
 
-**Product name:** Remediation Twin
+**Product name:** EY Remediation Twin
 
 **Category:** Enterprise remediation simulation, orchestration, and agentic governance platform
 

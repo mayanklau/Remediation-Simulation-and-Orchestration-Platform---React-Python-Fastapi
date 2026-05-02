@@ -1,6 +1,6 @@
-# Remediation Twin: React + Python FastAPI + MongoDB
+# EY Remediation Twin: React + Python FastAPI + MongoDB
 
-Remediation Twin is an enterprise remediation simulation, orchestration, and agentic governance platform refactored into a React frontend, Python FastAPI backend, and MongoDB persistence layer.
+EY Remediation Twin is an enterprise remediation simulation, orchestration, and agentic governance platform refactored into a React frontend, Python FastAPI backend, and MongoDB persistence layer with an EY-inspired command center theme.
 
 The platform helps enterprises move from chaotic vulnerability backlogs to governed remediation execution. It ingests findings from scanners, cloud security tools, IAM platforms, Kubernetes, code security, compliance systems, and ticketing tools; maps them to assets; constructs vulnerability chains and attack paths; scores business risk, path difficulty, and before/after remediation risk; simulates remediation; generates rollout and rollback plans; routes approvals; applies virtual patches and attack-path breakers; and records audit evidence.
 
@@ -8,7 +8,7 @@ The platform helps enterprises move from chaotic vulnerability backlogs to gover
 
 Enterprises usually have many detection tools but no trusted system of action. Vulnerability management, cloud security, identity, application security, and GRC teams all create overlapping work. Engineering teams then receive tickets without clear blast radius, ownership, rollback guidance, approval context, or evidence requirements.
 
-Remediation Twin creates a governed operating layer for:
+EY Remediation Twin creates a governed operating layer for:
 
 - deciding which findings matter most
 - mapping findings to real assets and business services

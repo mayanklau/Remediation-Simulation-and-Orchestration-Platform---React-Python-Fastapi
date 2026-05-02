@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    app_name: str = "Remediation Twin"
+    app_name: str = "EY Remediation Twin"
     environment: Literal["local", "dev", "staging", "production"] = "local"
     api_host: str = "0.0.0.0"
     api_port: int = 8000

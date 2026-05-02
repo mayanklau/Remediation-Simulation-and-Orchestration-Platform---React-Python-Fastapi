@@ -7,8 +7,8 @@ from app.security import InMemoryRateLimitMiddleware, SecurityHeadersMiddleware
 
 
 app = FastAPI(
-    title="Remediation Twin API",
-    description="Python FastAPI and MongoDB backend for remediation simulation, orchestration, virtual patching, and agentic governance.",
+    title="EY Remediation Twin API",
+    description="Python FastAPI and MongoDB backend for EY-themed remediation simulation, orchestration, virtual patching, and agentic governance.",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -35,4 +35,4 @@ for router in [core.router, ingestion.router, inventory.router, remediation.rout
 
 @app.get("/")
 async def root():
-    return {"service": "Remediation Twin API", "docs": "/docs", "health": "/api/health"}
+    return {"service": "EY Remediation Twin API", "docs": "/docs", "health": "/api/health"}
