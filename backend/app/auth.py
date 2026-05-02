@@ -50,6 +50,7 @@ ROUTE_PERMISSIONS: list[tuple[Pattern[str], set[str], str]] = [
     (compile(r"^/api/workers/.+$"), {"POST"}, "automation:run"),
     (compile(r"^/api/reports$"), {"GET"}, "report:read"),
     (compile(r"^/api/enterprise-readiness$"), {"GET"}, "report:read"),
+    (compile(r"^/api/production-expansion$"), {"GET"}, "report:read"),
     (compile(r"^/api/audit$"), {"GET"}, "audit:read"),
     (compile(r"^/api/observability$"), {"GET"}, "audit:read"),
 ]

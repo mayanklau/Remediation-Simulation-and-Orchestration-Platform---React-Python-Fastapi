@@ -35,6 +35,7 @@ type RouteKey =
   | "agentic"
   | "integrations"
   | "readiness"
+  | "expansion"
   | "policies"
   | "reports"
   | "audit"
@@ -67,6 +68,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
     items: [
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
       { key: "readiness", label: "Readiness", icon: Sparkles },
+      { key: "expansion", label: "Expansion", icon: ShieldCheck },
       { key: "reports", label: "Reports", icon: FileCheck },
       { key: "audit", label: "Audit", icon: ScrollText },
       { key: "ops", label: "Operations", icon: Activity }
@@ -640,6 +642,40 @@ function EnterpriseReadiness({ refresh }: PageProps) {
   );
 }
 
+function ProductionExpansion({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/production-expansion", refresh);
+  const expansion = data?.expansion;
+  return (
+    <>
+      <Header eyebrow="Production expansion" title="Enterprise Product Completeness" description="Production-grade expansion for onboarding, connector marketplace, data quality, validation, economics, drift, policy builder, plugin SDK, deployment, security review, executive narratives, demo separation, E2E coverage, and data residency." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Modules" value={expansion?.summary?.modules ?? 0} />
+        <Metric label="Implemented" value={expansion?.summary?.implemented ?? 0} />
+        <Metric label="Ready To Wire" value={expansion?.summary?.ready_to_wire ?? 0} />
+        <Metric label="Score" value={`${expansion?.summary?.production_score ?? 0}%`} />
+      </section>
+      <section className="grid cols-2">
+        {(expansion?.modules || []).map((item: any) => (
+          <div className="panel" key={item.id}>
+            <h2>{item.name}</h2>
+            <p>{item.purpose}</p>
+            <div className="badge-row"><Badge value={item.status} /><Badge value={item.owner} /></div>
+            <table>
+              <tbody>
+                <tr><td>APIs</td><td>{(item.api_surface || []).join(", ")}</td></tr>
+                <tr><td>Workflow</td><td>{(item.workflow || []).join(" -> ")}</td></tr>
+                <tr><td>Evidence</td><td>{(item.evidence || []).join(", ")}</td></tr>
+                <tr><td>Gates</td><td>{(item.readiness_gates || []).join(", ")}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
 function Policies({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/policies", refresh);
   return <><Header eyebrow="Governance" title="Policies" description="Freeze windows, evidence gates, virtual patches, path breakers, and execution guardrails." /><Table rows={data?.policies || []} columns={["name", "policy_type", "enabled", "created_at"]} /></>;
@@ -689,6 +725,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);
