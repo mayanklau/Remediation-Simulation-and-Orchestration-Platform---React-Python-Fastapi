@@ -33,6 +33,7 @@ type RouteKey =
   | "workflows"
   | "virtual"
   | "agentic"
+  | "integrations"
   | "policies"
   | "reports"
   | "audit"
@@ -56,7 +57,8 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "simulations", label: "Simulations", icon: Activity },
       { key: "workflows", label: "Approvals", icon: CheckCircle2 },
       { key: "virtual", label: "Virtual Patch", icon: ShieldCheck },
-      { key: "agentic", label: "Agentic", icon: Bot }
+      { key: "agentic", label: "Agentic", icon: Bot },
+      { key: "integrations", label: "Integrations", icon: Activity }
     ]
   },
   {
@@ -533,6 +535,72 @@ function Agentic({ refresh, bump }: PageProps) {
   );
 }
 
+function Integrations({ refresh, bump }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/connectors", refresh);
+  const [form, setForm] = useState({
+    provider: "custom-http",
+    name: "Custom HTTP connector",
+    category: "custom",
+    auth_mode: "manual_secret_reference",
+    endpoint: "https://example.internal/api",
+    owner: "security-operations",
+    scopes: "read",
+    operation: "health_check",
+    payload: '{ "mode": "manual_dry_run" }'
+  });
+  const templates = data?.templates || [];
+  function applyTemplate(provider: string) {
+    const template = templates.find((item: any) => item.provider === provider);
+    setForm((current) => ({
+      ...current,
+      provider,
+      name: `${provider} connector`,
+      category: template?.category || "custom",
+      scopes: (template?.scopes || ["read"]).join(","),
+      operation: template?.operation || "health_check"
+    }));
+  }
+  async function saveProfile() {
+    await api("/api/connectors", { method: "POST", body: JSON.stringify(form) });
+    bump();
+  }
+  async function runCheck(provider = form.provider, operation = form.operation) {
+    let payload = {};
+    try {
+      payload = JSON.parse(form.payload || "{}");
+    } catch {
+      payload = { raw: form.payload };
+    }
+    await api("/api/connectors/live", { method: "POST", body: JSON.stringify({ provider, operation, dry_run: true, payload }) });
+    bump();
+  }
+  return (
+    <>
+      <Header eyebrow="Manual connector factory" title="Integrations" description="Add any scanner, CMDB, ticketing, cloud, code, IAM, notification, or custom HTTP connector without code changes.">
+        <button onClick={saveProfile}>Save profile</button>
+        <button onClick={() => runCheck()}>Run dry check</button>
+      </Header>
+      <DataStatus loading={loading} error={error} />
+      <section className="panel">
+        <div className="connector-form-grid">
+          <label><span>Template</span><select value={form.provider} onChange={(event) => applyTemplate(event.target.value)}>{templates.map((template: any) => <option key={template.provider} value={template.provider}>{template.provider}</option>)}</select></label>
+          <label><span>Provider</span><input value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value })} /></label>
+          <label><span>Name</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+          <label><span>Category</span><input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} /></label>
+          <label><span>Auth mode</span><input value={form.auth_mode} onChange={(event) => setForm({ ...form, auth_mode: event.target.value })} /></label>
+          <label><span>Endpoint</span><input value={form.endpoint} onChange={(event) => setForm({ ...form, endpoint: event.target.value })} /></label>
+          <label><span>Owner</span><input value={form.owner} onChange={(event) => setForm({ ...form, owner: event.target.value })} /></label>
+          <label><span>Scopes</span><input value={form.scopes} onChange={(event) => setForm({ ...form, scopes: event.target.value })} /></label>
+          <label><span>Operation</span><input value={form.operation} onChange={(event) => setForm({ ...form, operation: event.target.value })} /></label>
+        </div>
+        <label className="wide-field"><span>Dry-run payload JSON</span><textarea value={form.payload} onChange={(event) => setForm({ ...form, payload: event.target.value })} /></label>
+      </section>
+      <Table title="Connector Profiles" rows={data?.profiles || []} columns={["name", "provider", "category", "auth_mode", "owner", "enabled"]} />
+      <Table title="Recent Connector Runs" rows={data?.runs || []} columns={["provider", "operation", "status", "dry_run", "created_at"]} />
+    </>
+  );
+}
+
 function Policies({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/policies", refresh);
   return <><Header eyebrow="Governance" title="Policies" description="Freeze windows, evidence gates, virtual patches, path breakers, and execution guardrails." /><Table rows={data?.policies || []} columns={["name", "policy_type", "enabled", "created_at"]} /></>;
@@ -582,6 +650,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

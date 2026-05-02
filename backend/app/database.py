@@ -56,4 +56,5 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.audit_logs.create_index([("tenant_id", ASCENDING), ("created_at", DESCENDING)])
     await db.report_snapshots.create_index([("tenant_id", ASCENDING), ("created_at", DESCENDING)])
     await db.connector_runs.create_index([("tenant_id", ASCENDING), ("created_at", DESCENDING)])
+    await db.connector_profiles.create_index([("tenant_id", ASCENDING), ("provider", ASCENDING)], unique=True)
     await db.policies.create_index([("tenant_id", ASCENDING), ("policy_type", ASCENDING)])

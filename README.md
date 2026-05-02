@@ -51,6 +51,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Agentic orchestrator that plans remediation with safety rails and model fallback.
 - Governance policies for virtual patching, evidence gates, dry-run controls, and production approval.
 - Reports, audit log, connector dry-runs, and worker dry-runs.
+- Manual connector and integration factory for any scanner, CMDB, ticketing, cloud, code, IAM, notification, or custom HTTP provider with Mongo-backed profile persistence and dry-run health checks.
 - React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with React Flow graph-library canvases for pan, zoom, minimap, risk filtering, export, drill-down, empty states, and error-safe API loading.
 - Docker Compose for local MongoDB, API, and web runtime.
 - CI/CD quality gates for Python compile, pytest, frontend build, dependency scans, Mongo index manifest checks, Docker builds, and container scans.
@@ -99,7 +100,8 @@ EY Remediation Twin creates a governed operating layer for:
 10. Attack-path analytics chain vulnerabilities from exposed entry points to production or crown-jewel targets.
 11. Virtual patching recommends compensating controls and path breakers.
 12. Agentic planning creates a governed tool plan with dry-run defaults.
-13. Reports and audit logs preserve decision history.
+13. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.
+14. Reports and audit logs preserve decision history.
 
 ## Attack Path Analytics
 

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.dependencies import database, tenant_context
-from app.models import ConnectorRun, Policy, ReportSnapshot, Tenant
+from app.models import ConnectorProfile, ConnectorRun, Policy, ReportSnapshot, Tenant, now
 from app.services.agentic import build_agentic_model, run_agentic_plan
 from app.services.attack_paths import build_attack_path_model, snapshot_attack_path_model
 from app.services.tenant import touch_audit
@@ -79,17 +79,80 @@ async def apply_fix(payload: dict, tenant: Tenant = Depends(tenant_context), db:
 
 @router.post("/connectors/live")
 async def connector_live(payload: dict, tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    provider = _normalize_provider(payload.get("provider", "unknown"))
+    operation = payload.get("operation", "health_check")
+    profile = await db.connector_profiles.find_one({"tenant_id": tenant.id, "provider": provider})
     run = ConnectorRun(
         tenant_id=tenant.id,
-        provider=payload.get("provider", "unknown"),
-        operation=payload.get("operation", "unknown"),
+        provider=provider,
+        operation=operation,
         dry_run=payload.get("dry_run", True),
-        endpoint=payload.get("endpoint"),
+        endpoint=payload.get("endpoint") or (profile or {}).get("endpoint"),
         payload=payload.get("payload", {}),
-        result={"status": "dry_run_recorded" if payload.get("dry_run", True) else "submitted"},
+        result={
+            "status": "dry_run_recorded" if payload.get("dry_run", True) else "submitted",
+            "profile_found": bool(profile),
+            "auth_mode": (profile or {}).get("auth_mode", payload.get("auth_mode", "manual_secret_reference")),
+            "scopes": (profile or {}).get("scopes", []),
+        },
     )
     await db.connector_runs.insert_one(run.model_dump(by_alias=True))
+    await db.connector_profiles.update_one(
+        {"tenant_id": tenant.id, "provider": provider},
+        {"$set": {"health": {"status": run.status, "last_checked_at": now(), "operation": operation}, "updated_at": now()}},
+    )
     return {"run": run}
+
+
+@router.get("/connectors")
+async def connectors(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return {
+        "profiles": await db.connector_profiles.find({"tenant_id": tenant.id}).sort("updated_at", -1).to_list(200),
+        "runs": await db.connector_runs.find({"tenant_id": tenant.id}).sort("created_at", -1).to_list(50),
+        "templates": _connector_templates(),
+    }
+
+
+@router.post("/connectors")
+async def create_connector_profile(payload: dict, tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    provider = _normalize_provider(payload["provider"])
+    scopes = payload.get("scopes", ["read"])
+    if isinstance(scopes, str):
+        scopes = [scope.strip() for scope in scopes.split(",") if scope.strip()]
+    profile = ConnectorProfile(
+        tenant_id=tenant.id,
+        provider=provider,
+        name=payload.get("name") or f"{provider} connector",
+        category=payload.get("category", "custom"),
+        enabled=payload.get("enabled", True),
+        auth_mode=payload.get("auth_mode", payload.get("authMode", "manual_secret_reference")),
+        endpoint=payload.get("endpoint"),
+        owner=payload.get("owner", "security-operations"),
+        scopes=scopes,
+        sync_cadence=payload.get("sync_cadence", payload.get("syncCadence", "manual")),
+        environment=payload.get("environment", "pilot"),
+        config=payload.get("config", {}),
+        health={"status": "profile_created", "last_checked_at": now(), "message": "Manual connector profile created. Run a dry-run health check before live execution."},
+    )
+    data = profile.model_dump(by_alias=True)
+    profile_id = data.pop("_id")
+    created_at = data.pop("created_at")
+    await db.connector_profiles.update_one(
+        {"tenant_id": tenant.id, "provider": provider},
+        {"$set": data, "$setOnInsert": {"_id": profile_id, "created_at": created_at}},
+        upsert=True,
+    )
+    return {"profile": await db.connector_profiles.find_one({"tenant_id": tenant.id, "provider": provider})}
+
+
+@router.get("/integrations")
+async def integrations(tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return await connectors(tenant, db)
+
+
+@router.post("/integrations")
+async def create_integration(payload: dict, tenant: Tenant = Depends(tenant_context), db: AsyncIOMotorDatabase = Depends(database)):
+    return await create_connector_profile(payload, tenant, db)
 
 
 @router.post("/workers/run")
@@ -97,6 +160,22 @@ async def workers_run(payload: dict, tenant: Tenant = Depends(tenant_context), d
     run = ConnectorRun(tenant_id=tenant.id, provider="worker", operation=payload.get("lane", "simulation"), dry_run=True, payload=payload, result={"processed": payload.get("limit", 5)})
     await db.connector_runs.insert_one(run.model_dump(by_alias=True))
     return {"run": run}
+
+
+def _normalize_provider(provider: str) -> str:
+    cleaned = "".join(char.lower() if char.isalnum() else "-" for char in str(provider).strip())
+    return "-".join(part for part in cleaned.split("-") if part) or "custom"
+
+
+def _connector_templates():
+    return [
+        {"provider": "tenable", "operation": "ingest_findings", "category": "scanner", "scopes": ["read:findings"]},
+        {"provider": "wiz", "operation": "ingest_cloud_findings", "category": "cloud", "scopes": ["read:issues", "read:assets"]},
+        {"provider": "jira", "operation": "create_issue", "category": "ticketing", "scopes": ["write:issues", "read:projects"]},
+        {"provider": "github", "operation": "create_issue", "category": "code", "scopes": ["repo", "workflow"]},
+        {"provider": "servicenow", "operation": "create_change", "category": "itsm", "scopes": ["change:write", "cmdb:read"]},
+        {"provider": "custom-http", "operation": "health_check", "category": "custom", "scopes": ["read"]},
+    ]
 
 
 @router.get("/reports")

@@ -187,3 +187,21 @@ class ConnectorRun(MongoModel):
     result: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=now)
 
+
+class ConnectorProfile(MongoModel):
+    id: str = Field(default_factory=new_id, alias="_id")
+    tenant_id: str
+    provider: str
+    name: str
+    category: str = "custom"
+    enabled: bool = True
+    auth_mode: str = "manual_secret_reference"
+    endpoint: str | None = None
+    owner: str = "security-operations"
+    scopes: list[str] = Field(default_factory=list)
+    sync_cadence: str = "manual"
+    environment: str = "pilot"
+    config: dict[str, Any] = Field(default_factory=dict)
+    health: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=now)
+    updated_at: datetime = Field(default_factory=now)

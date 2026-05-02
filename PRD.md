@@ -22,6 +22,7 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 - Add SSO/OIDC, tenant isolation tests, and RBAC enforcement contracts on sensitive routes.
 - Separate API routes from service, repository, DTO, and shared validation contracts.
 - Add queue workers for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- Add manual connector and integration onboarding for arbitrary scanners, CMDB, ticketing, cloud, code, IAM, notification, and custom HTTP providers.
 - Add environment separation for local, dev, staging, and production with strict config validation.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.
@@ -89,12 +90,17 @@ Users can open Attack Paths to see scanner-normalized chains from exposed entry 
 
 Users can run an agentic plan using a configured LLM, SLM, model gateway, or deterministic fallback. The agent returns a governed plan with tool steps and safety rails.
 
+### 6.9 Add Any Connector
+
+Users can create a manual connector profile, select a template or define a custom provider, store endpoint metadata and secret references, and run a dry-run health check before enabling live integration work.
+
 ## 7. Functional Requirements
 
 | Area | Requirement |
 | --- | --- |
 | Auth and tenancy | Enforce tenant boundary and RBAC on sensitive APIs; require OIDC/session configuration in production. |
 | Service architecture | Use repositories, services, DTOs, and shared validation instead of direct route persistence logic. |
+| Connector onboarding | Support manual connector profiles for any provider with category, auth mode, endpoint, owner, scopes, cadence, config, health, and run history. |
 | Queue workers | Support ingestion, simulation, connector sync, evidence generation, and report snapshot worker lanes. |
 | CI/CD gates | Run compile, tests, frontend build, dependency audit, and container-scan readiness checks. |
 | Tenancy | Resolve tenant through `x-tenant-id`; create default local tenant when missing. |
