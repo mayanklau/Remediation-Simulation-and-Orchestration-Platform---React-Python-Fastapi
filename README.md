@@ -42,7 +42,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
 - Asset inventory with environment, type, exposure, criticality, and data sensitivity.
 - Graph-native vulnerability chaining and attack-path analytics across scanner-normalized inputs.
-- Advanced cyber-risk intelligence with exploit intelligence fusion, business-service risk graph, attack-path confidence, exposure management, change-risk modeling, remediation strategy selection, control-effectiveness validation, threat-informed prioritization, crown-jewel governance, exception governance, campaign intelligence, continuous validation, scanner trust scoring, playbook marketplace, risk economics, and executive narratives.
+- Advanced cyber-risk intelligence with exploit intelligence fusion, business-service risk graph, attack-path confidence, exposure management, adversary scenario packs, risk appetite, control coverage matrix, toxic-combination detection, kill-chain staging, regulatory mapping, security debt ledger, dynamic SLA intelligence, change-risk modeling, remediation strategy selection, control-effectiveness validation, threat-informed prioritization, crown-jewel governance, exception governance, campaign intelligence, continuous validation, scanner trust scoring, playbook marketplace, risk economics, and executive narratives.
 - Business-risk scoring that accounts for severity, exploitability, active exploitation, patch availability, internet exposure, asset criticality, and data sensitivity.
 - Attack-path difficulty scoring and before/after remediation risk for customer-facing decision support.
 - Remediation queue with simulation, plan generation, approval workflow, and status transitions.
@@ -103,7 +103,7 @@ EY Remediation Twin creates a governed operating layer for:
 8. Users generate rollout, rollback, validation, and evidence plans.
 9. Users create approval workflows for governed execution.
 10. Attack-path analytics chain vulnerabilities from exposed entry points to production or crown-jewel targets.
-11. Cyber-risk intelligence explains exploit probability, business-service exposure, path confidence, remediation economics, exceptions, validation, and executive narratives.
+11. Cyber-risk intelligence explains exploit probability, adversary scenarios, business-service exposure, path confidence, toxic combinations, regulatory obligations, dynamic SLAs, remediation economics, exceptions, validation, and executive narratives.
 12. Virtual patching recommends compensating controls and path breakers.
 13. Agentic planning creates a governed tool plan with dry-run defaults.
 14. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.

@@ -82,6 +82,10 @@ def test_cyber_risk_intelligence_covers_subject_matter_features():
     assert "control_effectiveness" in ids
     assert "exception_governance" in ids
     assert "risk_reduced_per_hour" in [item["id"] for item in model["economics"]]
+    assert "ransomware_path" in [item["id"] for item in model["scenario_packs"]]
+    assert "toxic_combinations" in [item["id"] for item in model["governance_matrix"]]
+    assert "regulatory_mapping" in [item["id"] for item in model["governance_matrix"]]
+    assert "identity_cloud_data_risk" in [item["id"] for item in model["governance_matrix"]]
 
 
 def test_rbac_keeps_auditors_read_only():

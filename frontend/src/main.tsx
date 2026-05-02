@@ -508,7 +508,7 @@ function RiskIntel({ refresh }: PageProps) {
       <section className="metrics">
         <Metric label="Capabilities" value={intelligence?.summary?.capabilities ?? 0} />
         <Metric label="Economics" value={intelligence?.summary?.economics_metrics ?? 0} />
-        <Metric label="Narratives" value={intelligence?.summary?.executive_narratives ?? 0} />
+        <Metric label="Scenarios" value={intelligence?.summary?.scenario_packs ?? 0} />
         <Metric label="Score" value={`${intelligence?.summary?.intelligence_score ?? 0}%`} />
       </section>
       <section className="grid cols-2">
@@ -528,6 +528,10 @@ function RiskIntel({ refresh }: PageProps) {
             </table>
           </div>
         ))}
+      </section>
+      <section className="grid cols-2">
+        <Table title="Adversary Scenario Packs" rows={intelligence?.scenario_packs || []} columns={["name", "kill_chain", "controls", "status"]} />
+        <Table title="Governance Matrix" rows={intelligence?.governance_matrix || []} columns={["name", "scope", "output", "status"]} />
       </section>
       <section className="grid cols-2">
         <Table title="Risk Economics" rows={intelligence?.economics || []} columns={["name", "formula", "business_use", "status"]} />
