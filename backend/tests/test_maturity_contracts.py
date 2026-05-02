@@ -3,6 +3,7 @@ from app.auth import Principal, can, require_permission
 from app.config import Settings
 from app.workers import QueueJob, plan_for_lane
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
+from app.services.go_live import build_go_live_model
 from app.services.production_expansion import build_production_expansion_model
 
 
@@ -37,6 +38,7 @@ def test_route_permission_contract_covers_enterprise_surfaces():
     assert route_permission_for("/api/integrations", "POST") == "connector:run"
     assert route_permission_for("/api/enterprise-readiness", "GET") == "report:read"
     assert route_permission_for("/api/production-expansion", "GET") == "report:read"
+    assert route_permission_for("/api/go-live", "GET") == "report:read"
     assert route_permission_for("/api/audit", "GET") == "audit:read"
 
 
@@ -52,6 +54,13 @@ def test_production_expansion_covers_new_product_modules():
     assert expansion["summary"]["modules"] >= 15
     assert "connector_marketplace" in [item["id"] for item in expansion["modules"]]
     assert "data_residency" in [item["id"] for item in expansion["modules"]]
+
+
+def test_go_live_model_captures_launch_and_rollback():
+    model = build_go_live_model()
+    assert model["summary"]["sections"] >= 10
+    assert "Deploy API, web, and workers" in model["launch_sequence"]
+    assert "Rollback API and web images" in model["rollback_sequence"]
 
 
 def test_rbac_keeps_auditors_read_only():

@@ -25,6 +25,7 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 - Add manual connector and integration onboarding for arbitrary scanners, CMDB, ticketing, cloud, code, IAM, notification, and custom HTTP providers.
 - Add a once-and-for-all enterprise readiness control catalog with implemented, contract-ready, and external-setup-required status.
 - Add production expansion modules for onboarding, connector marketplace, data quality, validation, economics, drift, policy builder, plugin SDK, deployment, security review, executive reporting, demo separation, E2E testing, and data residency.
+- Add a go-live kit covering production environment values, production compose, launch sequence, rollback sequence, and acceptance checks.
 - Add environment separation for local, dev, staging, and production with strict config validation.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.
@@ -104,6 +105,10 @@ Users can review the complete enterprise control catalog across identity, tenanc
 
 Users can review production expansion modules with owners, API surfaces, workflows, readiness gates, and evidence outputs for the remaining enterprise capabilities.
 
+### 6.12 Launch Production
+
+Users can review go-live requirements, launch sequence, rollback sequence, and acceptance checks so deployment teams only need to provide customer-specific values.
+
 ## 7. Functional Requirements
 
 | Area | Requirement |
@@ -113,6 +118,7 @@ Users can review production expansion modules with owners, API surfaces, workflo
 | Connector onboarding | Support manual connector profiles for any provider with category, auth mode, endpoint, owner, scopes, cadence, config, health, and run history. |
 | Enterprise readiness | Expose a complete control catalog that separates implemented controls from contract-ready integrations and customer external setup. |
 | Production expansion | Expose product-completeness modules with workflow, evidence, API surface, owner, and readiness gates. |
+| Go-live kit | Expose launch and rollback checks with production environment, identity, secrets, connectors, data, workers, observability, security, release, and customer acceptance requirements. |
 | Queue workers | Support ingestion, simulation, connector sync, evidence generation, and report snapshot worker lanes. |
 | CI/CD gates | Run compile, tests, frontend build, dependency audit, and container-scan readiness checks. |
 | Tenancy | Resolve tenant through `x-tenant-id`; create default local tenant when missing. |

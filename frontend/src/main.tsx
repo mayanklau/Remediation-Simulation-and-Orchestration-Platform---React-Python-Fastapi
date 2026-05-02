@@ -36,6 +36,7 @@ type RouteKey =
   | "integrations"
   | "readiness"
   | "expansion"
+  | "goLive"
   | "policies"
   | "reports"
   | "audit"
@@ -69,6 +70,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
       { key: "readiness", label: "Readiness", icon: Sparkles },
       { key: "expansion", label: "Expansion", icon: ShieldCheck },
+      { key: "goLive", label: "Go Live", icon: CheckCircle2 },
       { key: "reports", label: "Reports", icon: FileCheck },
       { key: "audit", label: "Audit", icon: ScrollText },
       { key: "ops", label: "Operations", icon: Activity }
@@ -676,6 +678,41 @@ function ProductionExpansion({ refresh }: PageProps) {
   );
 }
 
+function GoLive({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/go-live", refresh);
+  const goLive = data?.go_live;
+  return (
+    <>
+      <Header eyebrow="Launch kit" title="Go-Live Control Center" description="Production values, launch sequence, rollback sequence, identity, secrets, connectors, data, workers, observability, security, release, and customer acceptance checks." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Sections" value={goLive?.summary?.sections ?? 0} />
+        <Metric label="Required" value={goLive?.summary?.required_items ?? 0} />
+        <Metric label="Verify" value={goLive?.summary?.verification_items ?? 0} />
+        <Metric label="Mode" value={goLive?.summary?.launch_mode || "pending"} />
+      </section>
+      <section className="grid cols-2">
+        {(goLive?.sections || []).map((section: any) => (
+          <div className="panel" key={section.id}>
+            <h2>{section.title}</h2>
+            <p>{section.owner}</p>
+            <table>
+              <tbody>
+                <tr><td>Required</td><td>{(section.required || []).join(", ")}</td></tr>
+                <tr><td>Verify</td><td>{(section.verification || []).join(", ")}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+      <section className="grid cols-2">
+        <div className="panel"><h2>Launch Sequence</h2><ol>{(goLive?.launch_sequence || []).map((step: string) => <li key={step}>{step}</li>)}</ol></div>
+        <div className="panel"><h2>Rollback Sequence</h2><ol>{(goLive?.rollback_sequence || []).map((step: string) => <li key={step}>{step}</li>)}</ol></div>
+      </section>
+    </>
+  );
+}
+
 function Policies({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/policies", refresh);
   return <><Header eyebrow="Governance" title="Policies" description="Freeze windows, evidence gates, virtual patches, path breakers, and execution guardrails." /><Table rows={data?.policies || []} columns={["name", "policy_type", "enabled", "created_at"]} /></>;
@@ -725,6 +762,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);
