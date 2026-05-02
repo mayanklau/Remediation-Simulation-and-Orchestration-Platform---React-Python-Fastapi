@@ -36,6 +36,7 @@ type RouteKey =
   | "integrations"
   | "readiness"
   | "expansion"
+  | "effectiveness"
   | "goLive"
   | "policies"
   | "reports"
@@ -70,6 +71,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
       { key: "readiness", label: "Readiness", icon: Sparkles },
       { key: "expansion", label: "Expansion", icon: ShieldCheck },
+      { key: "effectiveness", label: "Effectiveness", icon: Activity },
       { key: "goLive", label: "Go Live", icon: CheckCircle2 },
       { key: "reports", label: "Reports", icon: FileCheck },
       { key: "audit", label: "Audit", icon: ScrollText },
@@ -713,6 +715,55 @@ function GoLive({ refresh }: PageProps) {
   );
 }
 
+function ProductionEffectiveness({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/production-effectiveness", refresh);
+  const effectiveness = data?.effectiveness;
+  return (
+    <>
+      <Header eyebrow="Production effectiveness" title="Reliability And Validation" description="Queue retry contracts, data-quality gates, post-remediation validation, observability signals, and evidence-sealing guardrails." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Scheduler Lanes" value={effectiveness?.summary?.scheduler_lanes ?? 0} />
+        <Metric label="Data Gates" value={effectiveness?.summary?.data_quality_controls ?? 0} />
+        <Metric label="Validation Steps" value={effectiveness?.summary?.validation_steps ?? 0} />
+        <Metric label="Score" value={`${effectiveness?.summary?.effectiveness_score ?? 0}%`} />
+      </section>
+      <section className="grid cols-2">
+        <div className="panel">
+          <h2>Queue And Scheduler Contracts</h2>
+          <table>
+            <thead><tr><th>Lane</th><th>Trigger</th><th>Idempotency</th><th>Status</th></tr></thead>
+            <tbody>
+              {(effectiveness?.scheduler_lanes || []).map((lane: any) => (
+                <tr key={lane.id}><td>{lane.name}</td><td>{lane.trigger}</td><td>{lane.idempotency_key}</td><td><Badge value={lane.status} /></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="panel">
+          <h2>Data Quality Gates</h2>
+          <table>
+            <thead><tr><th>Gate</th><th>Fail Action</th><th>Owner</th></tr></thead>
+            <tbody>
+              {(effectiveness?.data_quality_controls || []).map((gate: any) => (
+                <tr key={gate.id}><td>{gate.name}</td><td>{gate.fail_action}</td><td>{gate.owner}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="grid cols-2">
+        <div className="panel"><h2>Post-Remediation Validation</h2><ol>{(effectiveness?.validation_loop || []).map((step: any) => <li key={step.id}><strong>{step.name}</strong>: {step.evidence}</li>)}</ol></div>
+        <div className="panel"><h2>Observability Signals</h2><Table rows={effectiveness?.observability_signals || []} columns={["name", "metric", "runbook", "status"]} /></div>
+      </section>
+      <section className="panel">
+        <h2>Operating Rules</h2>
+        <div className="badge-row">{(effectiveness?.operating_rules || []).map((rule: string) => <Badge key={rule} value={rule} />)}</div>
+      </section>
+    </>
+  );
+}
+
 function Policies({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/policies", refresh);
   return <><Header eyebrow="Governance" title="Policies" description="Freeze windows, evidence gates, virtual patches, path breakers, and execution guardrails." /><Table rows={data?.policies || []} columns={["name", "policy_type", "enabled", "created_at"]} /></>;
@@ -762,6 +813,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

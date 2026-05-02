@@ -21,11 +21,12 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 - Provide a full-stack remediation platform using React, FastAPI, and MongoDB.
 - Add SSO/OIDC, tenant isolation tests, and RBAC enforcement contracts on sensitive routes.
 - Separate API routes from service, repository, DTO, and shared validation contracts.
-- Add queue workers for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- Add queue workers for ingestion, simulation, connector sync, evidence generation, report snapshots, post-remediation validation, and data-quality scans.
 - Add manual connector and integration onboarding for arbitrary scanners, CMDB, ticketing, cloud, code, IAM, notification, and custom HTTP providers.
 - Add a once-and-for-all enterprise readiness control catalog with implemented, contract-ready, and external-setup-required status.
 - Add production expansion modules for onboarding, connector marketplace, data quality, validation, economics, drift, policy builder, plugin SDK, deployment, security review, executive reporting, demo separation, E2E testing, and data residency.
 - Add a go-live kit covering production environment values, production compose, launch sequence, rollback sequence, and acceptance checks.
+- Add production effectiveness controls for queue retries, dead letters, idempotency, source freshness, owner coverage, evidence completeness, post-remediation validation, and observability alerts.
 - Add environment separation for local, dev, staging, and production with strict config validation.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.

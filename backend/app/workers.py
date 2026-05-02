@@ -19,6 +19,8 @@ WORKER_PLANS = {
     "connector_sync": ["resolve secret reference", "call connector in dry-run unless approved", "record connector run", "emit telemetry"],
     "evidence_generation": ["collect before state", "attach simulation", "attach approvals", "hash seal pack"],
     "report_snapshot": ["recompute metrics", "freeze analytics", "store snapshot", "route executive export"],
+    "post_remediation_validation": ["load completed action", "run scanner or reachability check", "compare before and after risk", "reopen failed validations", "seal residual-risk evidence"],
+    "data_quality_scan": ["score source freshness", "check owner coverage", "detect duplicate fingerprints", "quarantine weak records", "publish data-quality metrics"],
 }
 
 

@@ -35,7 +35,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Multi-tenant API surface using `x-tenant-id` or default tenant creation.
 - SSO/OIDC production contract, tenant-boundary dependency, RBAC permission helper, and middleware-backed route-level enforcement across the API surface.
 - Repository/service structure for separating API routing from persistence logic and shared validation.
-- Queue-worker contracts for ingestion, simulation, connector sync, evidence generation, and report snapshots.
+- Queue-worker contracts for ingestion, simulation, connector sync, evidence generation, report snapshots, post-remediation validation, and data-quality scans.
 - MongoDB index manifest, backup/restore script, seed-free test fixtures, and persistence contract tests.
 - Runtime configuration validation for local, dev, staging, and production.
 - MongoDB collections for tenants, assets, findings, remediation actions, simulations, workflows, policies, reports, connector runs, and audit events.
@@ -55,6 +55,7 @@ EY Remediation Twin creates a governed operating layer for:
 - React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with React Flow graph-library canvases for pan, zoom, minimap, risk filtering, export, drill-down, empty states, and error-safe API loading.
 - Once-and-for-all enterprise readiness catalog covering identity, tenancy, secrets, connectors, ingestion, vulnerability analytics, simulation, orchestration, AI governance, evidence, reporting, platform architecture, security, observability, testing, DevOps, product experience, and commercial packaging.
 - Production expansion layer for admin onboarding, connector marketplace, data quality, attack-path validation, remediation economics, control drift, post-remediation validation, policy builder, plugin SDK, deployment hardening, security review, executive narratives, demo separation, E2E coverage, and data residency.
+- Production effectiveness layer for scheduler lanes, retry/backoff/dead-letter contracts, data-quality gates, post-remediation validation, residual-risk evidence, observability signals, and operating rules that separate repo-ready capability from customer-specific go-live wiring.
 - Go-live kit with production environment contract, production compose, static web container, launch sequence, rollback sequence, and identity/secrets/connectors/data/workers/observability/security/release/customer acceptance checks.
 - Docker Compose for local MongoDB, API, and web runtime.
 - CI/CD quality gates for Python compile, pytest, frontend build, dependency scans, Mongo index manifest checks, Docker builds, and container scans.
@@ -106,8 +107,9 @@ EY Remediation Twin creates a governed operating layer for:
 13. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.
 14. Enterprise readiness maps every required control to implemented, contract-ready, or external-setup-required status.
 15. Production expansion tracks the remaining enterprise product modules with APIs, workflows, evidence, gates, and owners.
-16. Go-live checks guide the final customer deployment and rollback path.
-17. Reports and audit logs preserve decision history.
+16. Production effectiveness verifies queue reliability, data quality, validation loops, evidence sealing, and observability.
+17. Go-live checks guide the final customer deployment and rollback path.
+18. Reports and audit logs preserve decision history.
 
 ## Attack Path Analytics
 

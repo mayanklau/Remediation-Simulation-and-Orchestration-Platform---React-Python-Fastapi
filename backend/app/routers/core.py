@@ -6,6 +6,7 @@ from app.models import Tenant
 from app.services.dashboard import asset_graph, dashboard
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
+from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
 
 router = APIRouter()
@@ -59,6 +60,11 @@ async def enterprise_readiness():
 @router.get("/production-expansion")
 async def production_expansion():
     return {"expansion": build_production_expansion_model()}
+
+
+@router.get("/production-effectiveness")
+async def production_effectiveness():
+    return {"effectiveness": build_production_effectiveness_model()}
 
 
 @router.get("/go-live")
