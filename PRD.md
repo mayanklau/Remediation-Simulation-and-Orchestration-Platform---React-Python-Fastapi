@@ -23,6 +23,7 @@ The result is duplicated tickets, delayed fixes, risky production changes, weak 
 - Separate API routes from service, repository, DTO, and shared validation contracts.
 - Add queue workers for ingestion, simulation, connector sync, evidence generation, and report snapshots.
 - Add manual connector and integration onboarding for arbitrary scanners, CMDB, ticketing, cloud, code, IAM, notification, and custom HTTP providers.
+- Add a once-and-for-all enterprise readiness control catalog with implemented, contract-ready, and external-setup-required status.
 - Add environment separation for local, dev, staging, and production with strict config validation.
 - Ingest and normalize findings from multiple enterprise sources.
 - Map findings to assets and business context.
@@ -94,6 +95,10 @@ Users can run an agentic plan using a configured LLM, SLM, model gateway, or det
 
 Users can create a manual connector profile, select a template or define a custom provider, store endpoint metadata and secret references, and run a dry-run health check before enabling live integration work.
 
+### 6.10 Review Enterprise Readiness
+
+Users can review the complete enterprise control catalog across identity, tenancy, secrets, connectors, ingestion, analytics, simulation, remediation, AI governance, evidence, operations, testing, deployment, product experience, and commercial packaging.
+
 ## 7. Functional Requirements
 
 | Area | Requirement |
@@ -101,6 +106,7 @@ Users can create a manual connector profile, select a template or define a custo
 | Auth and tenancy | Enforce tenant boundary and RBAC on sensitive APIs; require OIDC/session configuration in production. |
 | Service architecture | Use repositories, services, DTOs, and shared validation instead of direct route persistence logic. |
 | Connector onboarding | Support manual connector profiles for any provider with category, auth mode, endpoint, owner, scopes, cadence, config, health, and run history. |
+| Enterprise readiness | Expose a complete control catalog that separates implemented controls from contract-ready integrations and customer external setup. |
 | Queue workers | Support ingestion, simulation, connector sync, evidence generation, and report snapshot worker lanes. |
 | CI/CD gates | Run compile, tests, frontend build, dependency audit, and container-scan readiness checks. |
 | Tenancy | Resolve tenant through `x-tenant-id`; create default local tenant when missing. |

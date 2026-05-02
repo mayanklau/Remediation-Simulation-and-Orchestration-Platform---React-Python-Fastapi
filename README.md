@@ -53,6 +53,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Reports, audit log, connector dry-runs, and worker dry-runs.
 - Manual connector and integration factory for any scanner, CMDB, ticketing, cloud, code, IAM, notification, or custom HTTP provider with Mongo-backed profile persistence and dry-run health checks.
 - React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with React Flow graph-library canvases for pan, zoom, minimap, risk filtering, export, drill-down, empty states, and error-safe API loading.
+- Once-and-for-all enterprise readiness catalog covering identity, tenancy, secrets, connectors, ingestion, vulnerability analytics, simulation, orchestration, AI governance, evidence, reporting, platform architecture, security, observability, testing, DevOps, product experience, and commercial packaging.
 - Docker Compose for local MongoDB, API, and web runtime.
 - CI/CD quality gates for Python compile, pytest, frontend build, dependency scans, Mongo index manifest checks, Docker builds, and container scans.
 
@@ -101,7 +102,8 @@ EY Remediation Twin creates a governed operating layer for:
 11. Virtual patching recommends compensating controls and path breakers.
 12. Agentic planning creates a governed tool plan with dry-run defaults.
 13. Manual connector profiles onboard arbitrary third-party systems and run dry-run checks before live execution.
-14. Reports and audit logs preserve decision history.
+14. Enterprise readiness maps every required control to implemented, contract-ready, or external-setup-required status.
+15. Reports and audit logs preserve decision history.
 
 ## Attack Path Analytics
 
@@ -184,6 +186,7 @@ Agentic safety rules:
 | POST | `/api/connectors/live` | Record connector dry-run |
 | POST | `/api/workers/run` | Record worker dry-run |
 | GET | `/api/observability` | Runtime observability summary |
+| GET | `/api/enterprise-readiness` | Once-and-for-all enterprise control catalog |
 
 ## Quick Start
 

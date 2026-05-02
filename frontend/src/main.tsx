@@ -34,6 +34,7 @@ type RouteKey =
   | "virtual"
   | "agentic"
   | "integrations"
+  | "readiness"
   | "policies"
   | "reports"
   | "audit"
@@ -65,6 +66,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
     label: "Govern",
     items: [
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
+      { key: "readiness", label: "Readiness", icon: Sparkles },
       { key: "reports", label: "Reports", icon: FileCheck },
       { key: "audit", label: "Audit", icon: ScrollText },
       { key: "ops", label: "Operations", icon: Activity }
@@ -601,6 +603,43 @@ function Integrations({ refresh, bump }: PageProps) {
   );
 }
 
+function EnterpriseReadiness({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/enterprise-readiness", refresh);
+  const readiness = data?.readiness;
+  return (
+    <>
+      <Header eyebrow="Once-and-for-all controls" title="Enterprise Readiness" description="Complete enterprise control map across identity, tenancy, secrets, connectors, ingestion, analytics, remediation, AI governance, evidence, operations, deployment, and commercial packaging." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Categories" value={readiness?.summary?.categories ?? 0} />
+        <Metric label="Controls" value={readiness?.summary?.controls ?? 0} />
+        <Metric label="Implemented" value={readiness?.summary?.implemented ?? 0} />
+        <Metric label="Readiness" value={`${readiness?.summary?.readiness_score ?? 0}%`} />
+      </section>
+      <section className="panel">
+        <h2>Final Bar</h2>
+        <div className="badge-row">{(readiness?.summary?.final_bar || []).map((item: string) => <Badge key={item} value={item} />)}</div>
+      </section>
+      <section className="grid cols-2">
+        {(readiness?.categories || []).map((category: any) => (
+          <div className="panel" key={category.id}>
+            <h2>{category.name}</h2>
+            <p>{category.owner}</p>
+            <table>
+              <thead><tr><th>Control</th><th>Status</th><th>Evidence</th></tr></thead>
+              <tbody>
+                {category.controls.map((control: any) => (
+                  <tr key={control.id}><td>{control.name}</td><td><Badge value={control.status} /></td><td>{control.evidence}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+    </>
+  );
+}
+
 function Policies({ refresh }: PageProps) {
   const { data } = useApi<any>("/api/policies", refresh);
   return <><Header eyebrow="Governance" title="Policies" description="Freeze windows, evidence gates, virtual patches, path breakers, and execution guardrails." /><Table rows={data?.policies || []} columns={["name", "policy_type", "enabled", "created_at"]} /></>;
@@ -650,6 +689,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

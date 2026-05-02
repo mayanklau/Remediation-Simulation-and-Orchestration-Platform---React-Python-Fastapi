@@ -190,6 +190,12 @@ main {
   box-shadow: 0 0 0 4px rgba(6, 118, 71, 0.12);
 }
 
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .header {
   display: flex;
   align-items: flex-start;

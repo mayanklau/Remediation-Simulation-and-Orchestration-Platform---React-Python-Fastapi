@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.dependencies import database, tenant_context
 from app.models import Tenant
 from app.services.dashboard import asset_graph, dashboard
+from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 
 router = APIRouter()
 
@@ -47,3 +48,7 @@ async def observability(tenant: Tenant = Depends(tenant_context), db: AsyncIOMot
         "alerts_configured": bool(get_settings().alert_webhook_url),
     }
 
+
+@router.get("/enterprise-readiness")
+async def enterprise_readiness():
+    return {"readiness": build_enterprise_readiness_catalog()}
