@@ -402,6 +402,121 @@ pre {
   font: inherit;
 }
 
+.graph-panel {
+  margin-top: 16px;
+}
+
+.flow-shell {
+  height: 620px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 230, 0, 0.11), transparent 36%),
+    #fbfbf6;
+}
+
+.flow-node {
+  width: 230px;
+  min-height: 118px;
+  display: grid;
+  gap: 7px;
+  border: 1px solid #d9d9cf;
+  border-top: 5px solid #747480;
+  border-radius: 8px;
+  padding: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(46, 46, 56, 0.12);
+}
+
+.flow-node small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.flow-node strong {
+  color: #1a1a24;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.flow-node span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.flow-node.entry,
+.flow-node.internet_exposed {
+  border-top-color: var(--brand);
+}
+
+.flow-node.finding {
+  border-top-color: #b42318;
+}
+
+.flow-node.crown_jewel,
+.flow-node.production {
+  border-top-color: #9a6b00;
+}
+
+.flow-node.breaker {
+  border-top-color: #067647;
+}
+
+.risk-meter {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ecece4;
+}
+
+.risk-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), #b42318);
+}
+
+.graph-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.graph-slider input {
+  width: 110px;
+  accent-color: var(--brand);
+}
+
+.graph-inspector {
+  min-height: 54px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  background: #fffde8;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.graph-inspector strong {
+  color: #1a1a24;
+}
+
 .zoom-compact .graph-node {
   min-height: 58px;
   padding: 8px;

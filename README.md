@@ -51,7 +51,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Agentic orchestrator that plans remediation with safety rails and model fallback.
 - Governance policies for virtual patching, evidence gates, dry-run controls, and production approval.
 - Reports, audit log, connector dry-runs, and worker dry-runs.
-- React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with graph filtering, zoom density, export, drill-down, empty states, and error-safe API loading.
+- React UI for dashboard, findings, assets, remediation, virtual patching, agentic planning, policies, reports, audit, and operations, with React Flow graph-library canvases for pan, zoom, minimap, risk filtering, export, drill-down, empty states, and error-safe API loading.
 - Docker Compose for local MongoDB, API, and web runtime.
 - CI/CD quality gates for Python compile, pytest, frontend build, dependency scans, Mongo index manifest checks, Docker builds, and container scans.
 
@@ -116,8 +116,8 @@ The `/api/attack-paths` backend and Attack Paths UI convert scanner findings int
 - normalizes Tenable, Qualys, Wiz, Snyk, GitHub Advanced Security, AWS Security Hub, Kubernetes, IAM, cloud posture, compliance, CSV, and API findings into chain steps
 - uses asset reachability, internet exposure, exploit availability, active exploitation, patchability, policy controls, and production/crown-jewel targeting
 - builds bounded logical attack paths from likely entry points to high-value targets
-- returns graph-native attack path nodes and edges for entry assets, reachable services, exploit preconditions, targets, and breaker controls
-- renders an Attack Path Graph UI that makes path traversal and risk transfer visible
+- returns graph-library-ready attack path nodes and edges for entry assets, reachable services, exploit preconditions, targets, and breaker controls
+- renders a React Flow Attack Path Graph UI that makes path traversal and risk transfer visible
 - renders a Vulnerability Chaining Graph UI that shows ordered exploit steps, scanner source, mapped technique, difficulty, before/after risk, and breaker impact
 - labels path difficulty as `LOW`, `MEDIUM`, `HIGH`, or `VERY_HIGH`
 - compares before-remediation risk with estimated after-remediation residual risk

@@ -104,8 +104,8 @@ Users can run an agentic plan using a configured LLM, SLM, model gateway, or det
 | Risk scoring | Score by severity, exploitability, active exploitation, patch availability, exposure, criticality, and sensitivity. |
 | Vulnerability chaining | Convert findings from scanners, cloud, IAM, Kubernetes, code, compliance, CSV, and API sources into ordered chain steps. |
 | Attack path construction | Build bounded logical attack paths from entry assets to production, critical, or sensitive targets using asset reachability and exploit preconditions. |
-| Attack path graph UI | Render entry assets, reachability edges, exploit-precondition findings, crown-jewel targets, and breaker controls as a graph-native workbench. |
-| Vulnerability chain graph UI | Render each ordered vulnerability chain as connected graph nodes with scanner source, mapped technique, difficulty, before/after risk, and breaker outcome. |
+| Attack path graph UI | Render entry assets, reachability edges, exploit-precondition findings, crown-jewel targets, and breaker controls as a React Flow graph workbench with pan, zoom, minimap, filters, node inspector, and export. |
+| Vulnerability chain graph UI | Render each ordered vulnerability chain as connected graph nodes with scanner source, mapped technique, difficulty, before/after risk, breaker outcome, and graph-library-ready API contracts. |
 | Path difficulty | Label each attack path as `LOW`, `MEDIUM`, `HIGH`, or `VERY_HIGH`. |
 | Before/after risk | Present pre-remediation path risk, residual risk after remediation, and expected risk delta. |
 | Remediation actions | Create actions for new canonical findings. |
@@ -141,7 +141,7 @@ The platform must provide scanner-agnostic vulnerability analytics:
 | Scanner input coverage | Support Tenable, Qualys, Wiz, Snyk, GitHub Advanced Security, AWS Security Hub, Kubernetes, IAM, cloud posture, compliance, CSV, and API scanner feeds through the canonical finding model. |
 | Construction method | Use logical attack graph construction with bounded simple-path enumeration over asset reachability, exposure, exploitability, and target criticality. |
 | Vulnerability chain steps | Include finding ID, source scanner, category, mapped technique, severity, business risk, exploit availability, active exploitation, and patch availability. |
-| Graph model | Return attack graph nodes, attack graph edges, vulnerability chain graph nodes, vulnerability chain graph edges, and breaker edges in the API response. |
+| Graph model | Return attack graph nodes, attack graph edges, vulnerability chain graph nodes, vulnerability chain graph edges, breaker edges, and React Flow-ready node/edge projections in the API response. |
 | Difficulty level | Calculate path difficulty from hop count, exposure, exploit availability, patchability, active exploitation, and control friction. |
 | Customer risk view | Show before-remediation risk, after-remediation residual risk, risk delta, likelihood, and business impact. |
 | Breaker advice | Recommend WAF/API gateway virtual patches, microsegmentation, conditional IAM denies, route restrictions, and simulation-backed controls. |

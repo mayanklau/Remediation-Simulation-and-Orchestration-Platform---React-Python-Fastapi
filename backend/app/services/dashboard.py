@@ -56,5 +56,50 @@ async def asset_graph(db: AsyncIOMotorDatabase, tenant_id: str) -> dict:
     for source in exposed[:20]:
         for target in prod_assets[:3]:
             if source["_id"] != target["_id"]:
-                edges.append({"from": source["_id"], "to": target["_id"], "relation": "potential_reachability", "confidence": 0.55})
-    return {"nodes": nodes, "edges": edges, "summary": {"assets": len(nodes), "edges": len(edges), "exposed_assets": len(exposed)}}
+                source_risk = risk_by_asset.get(source["_id"], 0)
+                target_risk = risk_by_asset.get(target["_id"], 0)
+                edges.append({
+                    "id": f"{source['_id']}->{target['_id']}",
+                    "from": source["_id"],
+                    "to": target["_id"],
+                    "relation": "potential_reachability",
+                    "confidence": 0.55,
+                    "risk_transfer": round((source_risk + target_risk) * 0.28, 2),
+                })
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "library_graph": {
+            "engine": "@xyflow/react",
+            "layout": "risk-layered-dependency",
+            "nodes": [
+                {
+                    "id": node["id"],
+                    "label": node["label"],
+                    "kind": "internet_exposed" if node.get("internet_exposure") else "production" if node.get("environment") == "PRODUCTION" else "asset",
+                    "group": node.get("environment"),
+                    "risk": node.get("risk", 0),
+                    "maturity": max(0, round(100 - node.get("risk", 0) * 0.35 - (12 if node.get("internet_exposure") else 0))),
+                    "metadata": {
+                        "type": node.get("type"),
+                        "criticality": node.get("criticality"),
+                        "data_sensitivity": node.get("data_sensitivity"),
+                    },
+                }
+                for node in nodes
+            ],
+            "edges": [
+                {
+                    "id": edge.get("id", f"{edge['from']}->{edge['to']}"),
+                    "source": edge["from"],
+                    "target": edge["to"],
+                    "label": edge["relation"],
+                    "kind": edge["relation"],
+                    "weight": edge.get("risk_transfer", 20),
+                    "confidence": edge.get("confidence", 0),
+                }
+                for edge in edges
+            ],
+        },
+        "summary": {"assets": len(nodes), "edges": len(edges), "exposed_assets": len(exposed)},
+    }

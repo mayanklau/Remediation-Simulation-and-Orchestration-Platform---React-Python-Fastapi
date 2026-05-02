@@ -130,6 +130,33 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             "method": "Layered logical attack graph: entry assets, reachable services, exploit preconditions, crown-jewel targets, and policy-backed breaker controls.",
             "nodes": graph_model["nodes"],
             "edges": graph_model["edges"],
+            "library_graph": {
+                "engine": "@xyflow/react",
+                "layout": "layered-attack-path",
+                "nodes": [
+                    {
+                        "id": node["id"],
+                        "label": node["label"],
+                        "kind": node["kind"],
+                        "group": node.get("group"),
+                        "risk": node.get("risk", 0),
+                        "difficulty": node.get("difficulty"),
+                    }
+                    for node in graph_model["nodes"]
+                ],
+                "edges": [
+                    {
+                        "id": edge["id"],
+                        "source": edge["from"],
+                        "target": edge["to"],
+                        "label": edge.get("label"),
+                        "kind": edge.get("relation"),
+                        "weight": edge.get("weight", 0),
+                        "path_id": edge.get("path_id"),
+                    }
+                    for edge in graph_model["edges"]
+                ],
+            },
         },
         "vulnerability_chain_graph": graph_model["vulnerability_chains"],
         "paths": paths,

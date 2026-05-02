@@ -17,6 +17,7 @@ import {
   Sparkles,
   SlidersHorizontal
 } from "lucide-react";
+import { GraphCanvas } from "./GraphCanvas";
 import "./styles.css";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
@@ -208,7 +209,25 @@ function Assets({ refresh }: PageProps) {
 
 function Graph({ refresh }: PageProps) {
   const { data, loading, error } = useApi<any>("/api/asset-graph", refresh);
-  return <><Header eyebrow="Blast radius" title="Asset Graph" description="Dependency and attack-path graph for remediation impact decisions." /><DataStatus loading={loading} error={error} /><section className="grid cols-3"><Metric label="Assets" value={data?.summary?.assets ?? 0} /><Metric label="Edges" value={data?.summary?.edges ?? 0} /><Metric label="Exposed" value={data?.summary?.exposed_assets ?? 0} /></section><Json value={data} /></>;
+  return (
+    <>
+      <Header eyebrow="Blast radius" title="Asset Graph" description="Dependency and attack-path graph for remediation impact decisions." />
+      <DataStatus loading={loading} error={error} />
+      <section className="grid cols-3">
+        <Metric label="Assets" value={data?.summary?.assets ?? 0} />
+        <Metric label="Edges" value={data?.summary?.edges ?? 0} />
+        <Metric label="Exposed" value={data?.summary?.exposed_assets ?? 0} />
+      </section>
+      <GraphCanvas
+        title="Interactive Enterprise Asset Graph"
+        description="Real graph-library visualization with pan, zoom, minimap, risk filtering, dependency edges, internet exposure, production concentration, and graph JSON export."
+        mode="asset"
+        nodes={data?.library_graph?.nodes || []}
+        edges={data?.library_graph?.edges || []}
+      />
+      <Json value={data?.library_graph || {}} />
+    </>
+  );
 }
 
 function AttackPaths({ refresh, bump }: PageProps) {
@@ -270,6 +289,13 @@ function AttackPaths({ refresh, bump }: PageProps) {
           </table>
         </section>
       </section>
+      <GraphCanvas
+        title="Interactive Attack Path Graph"
+        description="Real graph-library representation of entry points, exploit preconditions, vulnerable findings, crown jewels, and path breaker controls with pan, zoom, minimap, risk filters, and export."
+        mode="attack"
+        nodes={model?.attack_graph?.library_graph?.nodes || []}
+        edges={model?.attack_graph?.library_graph?.edges || []}
+      />
       <AttackGraphView model={model} />
       <section className="grid cols-2">
         <section className="panel">
