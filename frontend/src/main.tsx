@@ -10,8 +10,11 @@ import {
   LayoutDashboard,
   Network,
   ScrollText,
+  Search,
   ShieldAlert,
   ShieldCheck,
+  Shield,
+  Sparkles,
   SlidersHorizontal
 } from "lucide-react";
 import "./styles.css";
@@ -34,21 +37,36 @@ type RouteKey =
   | "audit"
   | "ops";
 
-const nav: Array<{ key: RouteKey; label: string; icon: React.ComponentType<{ size?: number }> }> = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { key: "findings", label: "Findings", icon: ShieldAlert },
-  { key: "assets", label: "Assets", icon: Boxes },
-  { key: "graph", label: "Asset Graph", icon: Network },
-  { key: "attackPaths", label: "Attack Paths", icon: Network },
-  { key: "remediation", label: "Remediation", icon: GitPullRequestArrow },
-  { key: "simulations", label: "Simulations", icon: Activity },
-  { key: "workflows", label: "Approvals", icon: CheckCircle2 },
-  { key: "virtual", label: "Virtual Patch", icon: ShieldCheck },
-  { key: "agentic", label: "Agentic", icon: Bot },
-  { key: "policies", label: "Policies", icon: SlidersHorizontal },
-  { key: "reports", label: "Reports", icon: FileCheck },
-  { key: "audit", label: "Audit", icon: ScrollText },
-  { key: "ops", label: "Operations", icon: Activity }
+const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: string; icon: React.ComponentType<{ size?: number }> }> }> = [
+  {
+    label: "Command",
+    items: [
+      { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { key: "findings", label: "Findings", icon: ShieldAlert },
+      { key: "assets", label: "Assets", icon: Boxes },
+      { key: "graph", label: "Asset Graph", icon: Network },
+      { key: "attackPaths", label: "Attack Paths", icon: Network }
+    ]
+  },
+  {
+    label: "Remediate",
+    items: [
+      { key: "remediation", label: "Remediation", icon: GitPullRequestArrow },
+      { key: "simulations", label: "Simulations", icon: Activity },
+      { key: "workflows", label: "Approvals", icon: CheckCircle2 },
+      { key: "virtual", label: "Virtual Patch", icon: ShieldCheck },
+      { key: "agentic", label: "Agentic", icon: Bot }
+    ]
+  },
+  {
+    label: "Govern",
+    items: [
+      { key: "policies", label: "Policies", icon: SlidersHorizontal },
+      { key: "reports", label: "Reports", icon: FileCheck },
+      { key: "audit", label: "Audit", icon: ScrollText },
+      { key: "ops", label: "Operations", icon: Activity }
+    ]
+  }
 ];
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -83,22 +101,45 @@ function App() {
   const [route, setRoute] = useState<RouteKey>("dashboard");
   const [refresh, setRefresh] = useState(0);
   const Page = useMemo(() => pages[route], [route]);
+  const activeLabel = navGroups.flatMap((group) => group.items).find((item) => item.key === route)?.label || "Dashboard";
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand"><span>R</span><strong>Remediation Twin</strong></div>
+        <div className="brand">
+          <span>R</span>
+          <div>
+            <strong>Remediation Twin</strong>
+            <small>Attack-path operating system</small>
+          </div>
+        </div>
+        <div className="side-card">
+          <div><Shield size={16} /><strong>Production Control</strong></div>
+          <p>Tenant guarded, simulation first, evidence required.</p>
+        </div>
         <nav>
-          {nav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button className={route === item.key ? "active" : ""} key={item.key} onClick={() => setRoute(item.key)}>
-                <Icon size={18} /> {item.label}
-              </button>
-            );
-          })}
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <span>{group.label}</span>
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button className={route === item.key ? "active" : ""} key={item.key} onClick={() => setRoute(item.key)}>
+                    <Icon size={18} /> {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
       </aside>
       <main>
+        <div className="topbar">
+          <div className="search-box"><Search size={17} /><span>Search findings, assets, paths, controls</span></div>
+          <div className="topbar-actions">
+            <span className="health-dot">Live</span>
+            <span className="pill"><Sparkles size={14} /> {activeLabel}</span>
+          </div>
+        </div>
         <Page refresh={refresh} bump={() => setRefresh((value) => value + 1)} />
       </main>
     </div>
@@ -130,13 +171,20 @@ function Json({ value }: { value: unknown }) {
   return <pre>{JSON.stringify(value, null, 2)}</pre>;
 }
 
+function DataStatus({ loading, error }: { loading?: boolean; error?: string | null }) {
+  if (loading) return <div className="data-state loading">Loading live platform state...</div>;
+  if (error) return <div className="data-state error">Unable to load data: {error}</div>;
+  return null;
+}
+
 function Dashboard({ refresh, bump }: PageProps) {
-  const { data } = useApi<any>("/api/dashboard", refresh);
+  const { data, loading, error } = useApi<any>("/api/dashboard", refresh);
   return (
     <>
       <Header eyebrow="Enterprise command center" title="Dashboard" description="Risk, remediation, simulation, approval, and evidence posture.">
         <button onClick={async () => { await api("/api/mock-ingest", { method: "POST", body: "{}" }); bump(); }}>Load prototype data</button>
       </Header>
+      <DataStatus loading={loading} error={error} />
       <section className="grid cols-4">
         <Metric label="Open Findings" value={data?.counts?.open_findings ?? 0} />
         <Metric label="Assets" value={data?.counts?.assets ?? 0} />
@@ -149,28 +197,29 @@ function Dashboard({ refresh, bump }: PageProps) {
 }
 
 function Findings({ refresh }: PageProps) {
-  const { data } = useApi<any>("/api/findings", refresh);
-  return <><Header eyebrow="Normalized backlog" title="Findings" description="Canonical findings after ingestion, deduplication, risk scoring, and asset mapping." /><Table rows={data?.findings || []} columns={["title", "severity", "business_risk_score", "source", "status"]} /></>;
+  const { data, loading, error } = useApi<any>("/api/findings", refresh);
+  return <><Header eyebrow="Normalized backlog" title="Findings" description="Canonical findings after ingestion, deduplication, risk scoring, and asset mapping." /><DataStatus loading={loading} error={error} /><Table rows={data?.findings || []} columns={["title", "severity", "business_risk_score", "source", "status"]} /></>;
 }
 
 function Assets({ refresh }: PageProps) {
-  const { data } = useApi<any>("/api/assets", refresh);
-  return <><Header eyebrow="Asset inventory" title="Assets" description="Systems, services, owners, exposure, criticality, and data sensitivity." /><Table rows={data?.assets || []} columns={["name", "type", "environment", "criticality", "data_sensitivity", "internet_exposure"]} /></>;
+  const { data, loading, error } = useApi<any>("/api/assets", refresh);
+  return <><Header eyebrow="Asset inventory" title="Assets" description="Systems, services, owners, exposure, criticality, and data sensitivity." /><DataStatus loading={loading} error={error} /><Table rows={data?.assets || []} columns={["name", "type", "environment", "criticality", "data_sensitivity", "internet_exposure"]} /></>;
 }
 
 function Graph({ refresh }: PageProps) {
-  const { data } = useApi<any>("/api/asset-graph", refresh);
-  return <><Header eyebrow="Blast radius" title="Asset Graph" description="Dependency and attack-path graph for remediation impact decisions." /><section className="grid cols-3"><Metric label="Assets" value={data?.summary?.assets ?? 0} /><Metric label="Edges" value={data?.summary?.edges ?? 0} /><Metric label="Exposed" value={data?.summary?.exposed_assets ?? 0} /></section><Json value={data} /></>;
+  const { data, loading, error } = useApi<any>("/api/asset-graph", refresh);
+  return <><Header eyebrow="Blast radius" title="Asset Graph" description="Dependency and attack-path graph for remediation impact decisions." /><DataStatus loading={loading} error={error} /><section className="grid cols-3"><Metric label="Assets" value={data?.summary?.assets ?? 0} /><Metric label="Edges" value={data?.summary?.edges ?? 0} /><Metric label="Exposed" value={data?.summary?.exposed_assets ?? 0} /></section><Json value={data} /></>;
 }
 
 function AttackPaths({ refresh, bump }: PageProps) {
-  const { data } = useApi<any>("/api/attack-paths", refresh);
+  const { data, loading, error } = useApi<any>("/api/attack-paths", refresh);
   const model = data?.attack_paths;
   return (
     <>
       <Header eyebrow="Vulnerability chaining" title="Attack Path Analytics" description="Scanner-normalized attack paths with difficulty and before/after remediation risk.">
         <button onClick={async () => { await api("/api/attack-paths", { method: "POST", body: JSON.stringify({ action: "snapshot" }) }); bump(); }}>Snapshot analytics</button>
       </Header>
+      <DataStatus loading={loading} error={error} />
       <section className="grid cols-4">
         <Metric label="Attack Paths" value={model?.summary?.attack_paths ?? 0} />
         <Metric label="Critical Paths" value={model?.summary?.critical_paths ?? 0} />
