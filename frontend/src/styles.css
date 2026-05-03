@@ -422,8 +422,23 @@ pre {
     #fbfbf6;
 }
 
+.flow-shell .react-flow__minimap {
+  width: 128px;
+  height: 94px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.flow-shell .react-flow__controls {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 12px 24px rgba(46, 46, 56, 0.12);
+}
+
 .flow-node {
-  width: 230px;
+  width: 244px;
   min-height: 118px;
   display: grid;
   gap: 7px;
@@ -444,13 +459,14 @@ pre {
 
 .flow-node strong {
   color: #1a1a24;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.25;
 }
 
 .flow-node span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 1.35;
 }
 
 .flow-node.entry,

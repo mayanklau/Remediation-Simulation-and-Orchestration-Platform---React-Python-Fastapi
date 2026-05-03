@@ -96,7 +96,7 @@ export function GraphCanvas({ title, description, nodes = [], edges = [], mode }
         <a className="button-link" href={exportHref} download={`${mode}-graph.json`}>Export graph</a>
       </div>
       <div className="flow-shell">
-        <ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={nodeTypes} fitView minZoom={0.25} maxZoom={1.8} onNodeClick={(_, node) => setSelected(node.data.raw as GraphNode)}>
+        <ReactFlow nodes={flowNodes} edges={flowEdges} nodeTypes={nodeTypes} defaultViewport={{ x: 28, y: 150, zoom: mode === "attack" ? 0.92 : 0.82 }} minZoom={0.45} maxZoom={1.6} onNodeClick={(_, node) => setSelected(node.data.raw as GraphNode)}>
           <MiniMap nodeColor={(node) => kindColor(String(node.data.kind))} maskColor="rgba(26,26,36,0.08)" pannable zoomable />
           <Controls showInteractive={false} />
           <Background color="#d9d9cf" gap={22} variant={BackgroundVariant.Dots} />
@@ -137,7 +137,7 @@ function EnterpriseNode({ data }: NodeProps) {
 function layoutNodes(nodes: GraphNode[], edges: GraphEdge[], layout: "layered" | "radial", mode: string): Node[] {
   const layers = layerNodes(nodes, edges, mode);
   if (layout === "radial") {
-    const radius = Math.max(220, nodes.length * 18);
+    const radius = Math.max(300, nodes.length * 24);
     return nodes.map((node, index) => {
       const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2;
       return toFlowNode(node, { x: Math.cos(angle) * radius + radius, y: Math.sin(angle) * radius + radius * 0.7 });
@@ -147,7 +147,7 @@ function layoutNodes(nodes: GraphNode[], edges: GraphEdge[], layout: "layered" |
     const layer = layers.get(node.id) ?? 1;
     const siblings = nodes.filter((candidate) => (layers.get(candidate.id) ?? 1) === layer);
     const index = siblings.findIndex((candidate) => candidate.id === node.id);
-    return toFlowNode(node, { x: layer * 330, y: index * 145 + 40 });
+    return toFlowNode(node, { x: layer * 270 + 24, y: index * 168 + 80 });
   });
 }
 
@@ -159,7 +159,8 @@ function layerNodes(nodes: GraphNode[], edges: GraphEdge[], mode: string) {
   const layer = new Map<string, number>();
   for (const node of nodes) {
     if (["internet_exposed", "entry"].includes(node.kind)) layer.set(node.id, 0);
-    else if (["finding", "asset"].includes(node.kind)) layer.set(node.id, mode === "asset" ? 1 : 2);
+    else if (node.kind === "finding") layer.set(node.id, 1);
+    else if (node.kind === "asset") layer.set(node.id, mode === "asset" ? 1 : 2);
     else if (["production", "crown_jewel"].includes(node.kind)) layer.set(node.id, 3);
     else if (node.kind === "breaker") layer.set(node.id, 4);
     else layer.set(node.id, 1);
