@@ -142,7 +142,18 @@ async def create_connector_profile(payload: dict, tenant: Tenant = Depends(tenan
         {"$set": data, "$setOnInsert": {"_id": profile_id, "created_at": created_at}},
         upsert=True,
     )
-    return {"profile": await db.connector_profiles.find_one({"tenant_id": tenant.id, "provider": provider})}
+    saved_profile = await db.connector_profiles.find_one({"tenant_id": tenant.id, "provider": provider})
+    run = ConnectorRun(
+        tenant_id=tenant.id,
+        provider=provider,
+        operation="profile_created",
+        dry_run=True,
+        endpoint=profile.endpoint,
+        payload={"source": "frontend_integration_form", "category": profile.category, "scopes": scopes},
+        result={"status": "profile_appended", "profile_id": saved_profile["_id"], "message": "Integration profile appended from frontend and persisted in backend."},
+    )
+    await db.connector_runs.insert_one(run.model_dump(by_alias=True))
+    return {"profile": saved_profile, "run": run.model_dump(by_alias=True)}
 
 
 @router.get("/integrations")
@@ -174,6 +185,11 @@ def _connector_templates():
         {"provider": "jira", "operation": "create_issue", "category": "ticketing", "scopes": ["write:issues", "read:projects"]},
         {"provider": "github", "operation": "create_issue", "category": "code", "scopes": ["repo", "workflow"]},
         {"provider": "servicenow", "operation": "create_change", "category": "itsm", "scopes": ["change:write", "cmdb:read"]},
+        {"provider": "qualys", "operation": "ingest_findings", "category": "scanner", "scopes": ["read:vulnerabilities", "read:assets"]},
+        {"provider": "snyk", "operation": "ingest_code_findings", "category": "code", "scopes": ["read:issues", "read:projects"]},
+        {"provider": "aws-security-hub", "operation": "ingest_security_findings", "category": "cloud", "scopes": ["securityhub:read", "organizations:read"]},
+        {"provider": "defender", "operation": "ingest_endpoint_findings", "category": "endpoint", "scopes": ["machine:read", "alerts:read"]},
+        {"provider": "crowdstrike", "operation": "ingest_endpoint_findings", "category": "endpoint", "scopes": ["hosts:read", "detections:read"]},
         {"provider": "custom-http", "operation": "health_check", "category": "custom", "scopes": ["read"]},
     ]
 

@@ -622,7 +622,8 @@ function Agentic({ refresh, bump }: PageProps) {
 }
 
 function Integrations({ refresh, bump }: PageProps) {
-  const { data, loading, error } = useApi<any>("/api/connectors", refresh);
+  const { data, loading, error } = useApi<any>("/api/integrations", refresh);
+  const [message, setMessage] = useState("Ready to append a connector profile into the backend.");
   const [form, setForm] = useState({
     provider: "custom-http",
     name: "Custom HTTP connector",
@@ -647,8 +648,14 @@ function Integrations({ refresh, bump }: PageProps) {
     }));
   }
   async function saveProfile() {
-    await api("/api/connectors", { method: "POST", body: JSON.stringify(form) });
-    bump();
+    setMessage("Appending integration...");
+    try {
+      const result = await api<any>("/api/integrations", { method: "POST", body: JSON.stringify(form) });
+      setMessage(`${result?.profile?.name || form.name} appended to backend with an auditable profile_created run.`);
+      bump();
+    } catch (err) {
+      setMessage(`Unable to append integration: ${String(err)}`);
+    }
   }
   async function runCheck(provider = form.provider, operation = form.operation) {
     let payload = {};
@@ -663,11 +670,12 @@ function Integrations({ refresh, bump }: PageProps) {
   return (
     <>
       <Header eyebrow="Manual connector factory" title="Integrations" description="Add any scanner, CMDB, ticketing, cloud, code, IAM, notification, or custom HTTP connector without code changes.">
-        <button onClick={saveProfile}>Save profile</button>
+        <button onClick={saveProfile}>Append integration</button>
         <button onClick={() => runCheck()}>Run dry check</button>
       </Header>
       <DataStatus loading={loading} error={error} />
       <section className="panel">
+        <p className="muted">{message}</p>
         <div className="connector-form-grid">
           <label><span>Template</span><select value={form.provider} onChange={(event) => applyTemplate(event.target.value)}>{templates.map((template: any) => <option key={template.provider} value={template.provider}>{template.provider}</option>)}</select></label>
           <label><span>Provider</span><input value={form.provider} onChange={(event) => setForm({ ...form, provider: event.target.value })} /></label>
@@ -681,7 +689,7 @@ function Integrations({ refresh, bump }: PageProps) {
         </div>
         <label className="wide-field"><span>Dry-run payload JSON</span><textarea value={form.payload} onChange={(event) => setForm({ ...form, payload: event.target.value })} /></label>
       </section>
-      <Table title="Connector Profiles" rows={data?.profiles || []} columns={["name", "provider", "category", "auth_mode", "owner", "enabled"]} />
+      <Table title="Connector Profiles" rows={data?.profiles || []} columns={["name", "provider", "category", "auth_mode", "owner", "sync_cadence", "environment", "enabled"]} />
       <Table title="Recent Connector Runs" rows={data?.runs || []} columns={["provider", "operation", "status", "dry_run", "created_at"]} />
     </>
   );
