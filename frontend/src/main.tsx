@@ -557,32 +557,43 @@ function Remediation({ refresh, bump }: PageProps) {
   );
 }
 
+function pickField(source: any, snakeKey: string, camelKey: string, fallback: any = undefined) {
+  return source?.[snakeKey] ?? source?.[camelKey] ?? fallback;
+}
+
 function RiskIntel({ refresh }: PageProps) {
   const { data, loading, error } = useApi<any>("/api/cyber-risk-intelligence", refresh);
   const intelligence = data?.intelligence;
+  const summary = intelligence?.summary || {};
+  const capabilities = intelligence?.capabilities || [];
+  const scenarioPacks = pickField(intelligence, "scenario_packs", "scenarioPacks", []);
+  const governanceMatrix = pickField(intelligence, "governance_matrix", "governanceMatrix", []);
+  const maturityPack = pickField(intelligence, "subject_matter_maturity_pack", "subjectMatterMaturityPack", {});
+  const businessImpactModel = pickField(intelligence, "business_impact_model", "businessImpactModel", pickField(maturityPack, "business_impact_model", "businessImpactModel", []));
+  const operatingRules = pickField(intelligence, "operating_rules", "operatingRules", []);
   return (
     <>
       <Header eyebrow="Advanced subject matter" title="Cyber Risk Intelligence" description="Exploit intelligence, business-service risk, threat-informed prioritization, remediation economics, exception governance, control validation, and executive narratives." />
       <DataStatus loading={loading} error={error} />
       <section className="metrics">
         <Metric label="Capabilities" value={intelligence?.summary?.capabilities ?? 0} />
-        <Metric label="Economics" value={intelligence?.summary?.economics_metrics ?? 0} />
-        <Metric label="Scenarios" value={intelligence?.summary?.scenario_packs ?? 0} />
-        <Metric label="Score" value={`${intelligence?.summary?.intelligence_score ?? 0}%`} />
-        <Metric label="Certified Sources" value={intelligence?.summary?.certification_tracks ?? 0} />
-        <Metric label="MITRE Hops" value={intelligence?.summary?.mitre_mapped_hops ?? 0} />
-        <Metric label="Control Methods" value={intelligence?.summary?.control_validation_methods ?? 0} />
+        <Metric label="Economics" value={pickField(summary, "economics_metrics", "economicsMetrics", 0)} />
+        <Metric label="Scenarios" value={pickField(summary, "scenario_packs", "scenarioPacks", 0)} />
+        <Metric label="Score" value={`${pickField(summary, "intelligence_score", "intelligenceScore", 0)}%`} />
+        <Metric label="Certified Sources" value={pickField(summary, "certification_tracks", "certificationTracks", 0)} />
+        <Metric label="MITRE Hops" value={pickField(summary, "mitre_mapped_hops", "mitreMappedHops", 0)} />
+        <Metric label="Control Methods" value={pickField(summary, "control_validation_methods", "controlValidationMethods", 0)} />
       </section>
       <section className="grid cols-2">
-        {(intelligence?.capabilities || []).map((item: any) => (
+        {capabilities.map((item: any) => (
           <div className="panel" key={item.id}>
             <div className="panel-head">
-              <div><h2>{item.name}</h2><p>{item.subject_area}</p></div>
+              <div><h2>{item.name}</h2><p>{pickField(item, "subject_area", "subjectArea", "Risk intelligence")}</p></div>
               <Badge value={item.status} />
             </div>
             <table>
               <tbody>
-                <tr><td>Production use</td><td>{item.production_use}</td></tr>
+                <tr><td>Production use</td><td>{pickField(item, "production_use", "productionUse")}</td></tr>
                 <tr><td>Inputs</td><td>{(item.inputs || []).join(", ")}</td></tr>
                 <tr><td>Outputs</td><td>{(item.outputs || []).join(", ")}</td></tr>
                 <tr><td>Decision</td><td>{item.decision}</td></tr>
@@ -592,20 +603,30 @@ function RiskIntel({ refresh }: PageProps) {
         ))}
       </section>
       <section className="grid cols-2">
-        <Table title="Adversary Scenario Packs" rows={intelligence?.scenario_packs || []} columns={["name", "kill_chain", "controls", "status"]} />
-        <Table title="Governance Matrix" rows={intelligence?.governance_matrix || []} columns={["name", "scope", "output", "status"]} />
+        <Table title="Adversary Scenario Packs" rows={scenarioPacks} columns={["name", "kill_chain", "killChain", "controls", "status"]} />
+        <Table title="Governance Matrix" rows={governanceMatrix} columns={["name", "scope", "output", "status"]} />
       </section>
       <section className="grid cols-2">
-        <Table title="Scanner Certification Matrix" rows={intelligence?.subject_matter_maturity_pack?.scanner_certification || []} columns={["source", "required_fields", "acceptance"]} />
-        <Table title="MITRE Attack-Path Depth" rows={intelligence?.subject_matter_maturity_pack?.mitre_attack_depth || []} columns={["stage", "technique", "breaker_controls"]} />
+        <Table title="Scanner Certification Matrix" rows={pickField(maturityPack, "scanner_certification", "scannerCertification", [])} columns={["source", "required_fields", "requiredFields", "acceptance"]} />
+        <Table title="MITRE Attack-Path Depth" rows={pickField(maturityPack, "mitre_attack_depth", "mitreAttackDepth", [])} columns={["stage", "technique", "breaker_controls", "breakerControls"]} />
       </section>
       <section className="grid cols-2">
-        <Table title="Exploitability Confidence" rows={intelligence?.subject_matter_maturity_pack?.exploitability_confidence_model || []} columns={["label", "score", "explanation"]} />
-        <Table title="Control Effectiveness Library" rows={intelligence?.subject_matter_maturity_pack?.control_effectiveness_library || []} columns={["control", "objective", "validation", "time_to_mitigate"]} />
+        <Table title="Exploitability Confidence" rows={pickField(maturityPack, "exploitability_confidence_model", "exploitabilityConfidenceModel", [])} columns={["label", "score", "explanation"]} />
+        <Table title="Control Effectiveness Library" rows={pickField(maturityPack, "control_effectiveness_library", "controlEffectivenessLibrary", [])} columns={["control", "objective", "validation", "time_to_mitigate", "timeToMitigate"]} />
       </section>
       <section className="grid cols-2">
         <Table title="Risk Economics" rows={intelligence?.economics || []} columns={["name", "formula", "business_use", "status"]} />
         <Table title="Executive Narratives" rows={intelligence?.narratives || []} columns={["title", "audience", "message"]} />
+      </section>
+      <section className="grid cols-2">
+        <Table title="Business Impact Model" rows={businessImpactModel} columns={["asset_class", "assetClass", "signals", "governance"]} />
+        <section className="panel">
+          <h2>Operating Rules</h2>
+          <div className="rule-list">
+            {operatingRules.length === 0 && <p>No operating rules published yet.</p>}
+            {operatingRules.map((rule: string) => <div className="rule-item" key={rule}>{rule}</div>)}
+          </div>
+        </section>
       </section>
     </>
   );
@@ -1025,20 +1046,23 @@ function Ops({ refresh, bump }: PageProps) {
 }
 
 function Table({ title, rows, columns }: { title?: string; rows: any[]; columns: string[] }) {
+  const visibleColumns = columns.filter((column) => rows.length === 0 || rows.some((row) => row[column] !== undefined && row[column] !== null));
   return (
     <section className="panel">
       {title && <h2>{title}</h2>}
-      <table>
-        <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-        <tbody>
-          {rows.length === 0 && <tr><td colSpan={columns.length}>No records yet.</td></tr>}
-          {rows.map((row, index) => (
-            <tr key={row._id || row.id || index}>
-              {columns.map((column) => <td key={column}>{renderCell(row, column)}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-wrap">
+        <table>
+          <thead><tr>{visibleColumns.map((column) => <th key={column}>{column.replace(/_/g, " ")}</th>)}</tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td colSpan={Math.max(visibleColumns.length, 1)}>No records yet.</td></tr>}
+            {rows.map((row, index) => (
+              <tr key={row._id || row.id || index}>
+                {visibleColumns.map((column) => <td key={column}>{renderCell(row, column)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -1064,6 +1088,7 @@ function CompactTable({ rows, columns }: { rows: any[]; columns: string[] }) {
 function renderCell(row: any, column: string) {
   const value = row[column];
   if (Array.isArray(value)) return value.join(", ");
+  if (value && typeof value === "object") return JSON.stringify(value);
   if (typeof value === "boolean") return <Badge value={String(value)} />;
   if ((column === "name" || column === "title") && (row._id || row.id)) {
     return <a className="drill-link" href={`#${row._id || row.id}`}>{String(value ?? "")}</a>;
