@@ -223,7 +223,26 @@ function Findings({ refresh }: PageProps) {
 
 function Assets({ refresh }: PageProps) {
   const { data, loading, error } = useApi<any>("/api/assets", refresh);
-  return <><Header eyebrow="Asset inventory" title="Assets" description="Systems, services, owners, exposure, criticality, and data sensitivity." /><DataStatus loading={loading} error={error} /><Table rows={data?.assets || []} columns={["name", "type", "environment", "criticality", "data_sensitivity", "internet_exposure"]} /></>;
+  const { data: graphData, loading: graphLoading, error: graphError } = useApi<any>("/api/asset-graph", refresh);
+  return (
+    <>
+      <Header eyebrow="Asset inventory" title="Assets" description="Systems, services, owners, exposure, criticality, data sensitivity, and graph-library dependency intelligence." />
+      <DataStatus loading={loading || graphLoading} error={error || graphError} />
+      <section className="grid cols-3">
+        <Metric label="Assets" value={graphData?.summary?.assets ?? data?.assets?.length ?? 0} />
+        <Metric label="Edges" value={graphData?.summary?.edges ?? 0} />
+        <Metric label="Exposed" value={graphData?.summary?.exposed_assets ?? 0} />
+      </section>
+      <GraphCanvas
+        title="Asset Inventory Graph"
+        description="Graph-library visualization inside the asset section with pan, zoom, minimap, filtering, risk-weighted dependency edges, exposure context, and graph JSON export."
+        mode="asset"
+        nodes={graphData?.library_graph?.nodes || []}
+        edges={graphData?.library_graph?.edges || []}
+      />
+      <Table rows={data?.assets || []} columns={["name", "type", "environment", "criticality", "data_sensitivity", "internet_exposure"]} />
+    </>
+  );
 }
 
 function Graph({ refresh }: PageProps) {
