@@ -254,8 +254,8 @@ function AttackPaths({ refresh, bump }: PageProps) {
       <section className="grid cols-4">
         <Metric label="Attack Paths" value={model?.summary?.attack_paths ?? 0} />
         <Metric label="Critical Paths" value={model?.summary?.critical_paths ?? 0} />
+        <Metric label="Multi-Path Vulns" value={model?.summary?.vulnerabilities_with_multiple_paths ?? 0} />
         <Metric label="Before Risk" value={`${model?.summary?.average_before_risk ?? 0}%`} />
-        <Metric label="After Risk" value={`${model?.summary?.average_after_risk ?? 0}%`} />
       </section>
       <section className="grid cols-2">
         <section className="panel">
@@ -352,6 +352,7 @@ function AttackPaths({ refresh, bump }: PageProps) {
         </section>
       </section>
       <ChainGraphView chains={model?.vulnerability_chain_graph || []} />
+      <Table title="Vulnerability Multi-Path Fan-Out" rows={model?.vulnerability_fan_out || []} columns={["title", "asset_name", "path_count", "targets", "impact_score", "pre_remediation_risk", "post_remediation_risk", "total_risk_reduction"]} />
       <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority", "customer_narrative"]} />
       <Json value={model?.construction_method || {}} />
     </>
@@ -474,7 +475,8 @@ function GraphNode({ node, compact = false }: { node: any; compact?: boolean }) 
     <div className={`graph-node ${node.kind} ${compact ? "compact" : ""}`}>
       <small>{String(node.kind || "node").replace("_", " ")}</small>
       <strong>{node.label}</strong>
-      <span>{node.group} | {node.risk}%</span>
+      <span>{node.group} | impact {node.impactScore ?? node.impact_score ?? node.risk}</span>
+      <span>pre {node.preRemediationRisk ?? node.pre_remediation_risk ?? node.risk}% / post {node.postRemediationRisk ?? node.post_remediation_risk ?? node.risk}%</span>
     </div>
   );
 }
@@ -850,6 +852,7 @@ function Table({ title, rows, columns }: { title?: string; rows: any[]; columns:
 
 function renderCell(row: any, column: string) {
   const value = row[column];
+  if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return <Badge value={String(value)} />;
   if ((column === "name" || column === "title") && (row._id || row.id)) {
     return <a className="drill-link" href={`#${row._id || row.id}`}>{String(value ?? "")}</a>;

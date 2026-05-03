@@ -42,6 +42,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Finding ingestion with normalization, deduplication, asset upsert, fingerprinting, risk scoring, and remediation action creation.
 - Asset inventory with environment, type, exposure, criticality, and data sensitivity.
 - Graph-native vulnerability chaining and attack-path analytics across scanner-normalized inputs.
+- Multi-path vulnerability fan-out so one discovered vulnerability can generate multiple attack paths, with each graph point showing impact score, pre-remediation risk, post-remediation residual risk, affected targets, and path-specific reduction.
 - Advanced cyber-risk intelligence with exploit intelligence fusion, business-service risk graph, attack-path confidence, exposure management, adversary scenario packs, risk appetite, control coverage matrix, toxic-combination detection, kill-chain staging, regulatory mapping, security debt ledger, dynamic SLA intelligence, change-risk modeling, remediation strategy selection, control-effectiveness validation, threat-informed prioritization, crown-jewel governance, exception governance, campaign intelligence, continuous validation, scanner trust scoring, playbook marketplace, risk economics, and executive narratives.
 - Business-risk scoring that accounts for severity, exploitability, active exploitation, patch availability, internet exposure, asset criticality, and data sensitivity.
 - Attack-path difficulty scoring and before/after remediation risk for customer-facing decision support.

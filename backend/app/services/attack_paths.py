@@ -73,6 +73,7 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
         ][:3]
     graph_model = _graph_model(paths)
     executive_views = _executive_views(paths)
+    vulnerability_fan_out = _vulnerability_fan_out(paths)
     return {
         "generated_by": "scanner-normalized-attack-path-engine",
         "construction_method": {
@@ -105,6 +106,8 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             "graph_nodes": len(graph_model["nodes"]),
             "graph_edges": len(graph_model["edges"]),
             "vulnerability_chains": len(graph_model["vulnerability_chains"]),
+            "vulnerabilities_with_multiple_paths": len([item for item in vulnerability_fan_out if item["path_count"] > 1]),
+            "max_paths_from_single_vulnerability": max([0, *[item["path_count"] for item in vulnerability_fan_out]]),
         },
         "scanner_coverage": _scanner_coverage(findings),
         "scanner_normalization_adapters": _scanner_normalization_adapters(),
@@ -121,6 +124,7 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
                 {"target": path["target_asset"], "exposure": path["crown_jewel_exposure"], "before_risk": path["before_remediation_risk"], "after_risk": path["after_remediation_risk"]}
                 for path in paths if path["crown_jewel_exposure"] != "low"
             ][:10],
+            "vulnerability_fan_out": vulnerability_fan_out,
         },
         "executive_views": executive_views,
         "decision_readiness": _decision_readiness(paths),
@@ -140,6 +144,15 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
                         "kind": node["kind"],
                         "group": node.get("group"),
                         "risk": node.get("risk", 0),
+                        "impactScore": node.get("impact_score", node.get("risk", 0)),
+                        "impact_score": node.get("impact_score", node.get("risk", 0)),
+                        "preRemediationRisk": node.get("pre_remediation_risk", node.get("risk", 0)),
+                        "pre_remediation_risk": node.get("pre_remediation_risk", node.get("risk", 0)),
+                        "postRemediationRisk": node.get("post_remediation_risk", node.get("risk", 0)),
+                        "post_remediation_risk": node.get("post_remediation_risk", node.get("risk", 0)),
+                        "pathIds": node.get("path_ids", []),
+                        "path_ids": node.get("path_ids", []),
+                        "source_finding_id": node.get("source_finding_id"),
                         "difficulty": node.get("difficulty"),
                     }
                     for node in graph_model["nodes"]
@@ -159,6 +172,7 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
             },
         },
         "vulnerability_chain_graph": graph_model["vulnerability_chains"],
+        "vulnerability_fan_out": vulnerability_fan_out,
         "paths": paths,
     }
 
@@ -611,6 +625,10 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
         existing = nodes.get(node["id"])
         if existing:
             existing["risk"] = max(int(existing.get("risk", 0)), int(node.get("risk", 0)))
+            existing["impact_score"] = max(int(existing.get("impact_score", 0)), int(node.get("impact_score", 0)))
+            existing["pre_remediation_risk"] = max(int(existing.get("pre_remediation_risk", 0)), int(node.get("pre_remediation_risk", 0)))
+            existing["post_remediation_risk"] = min(int(existing.get("post_remediation_risk", 100)), int(node.get("post_remediation_risk", 100)))
+            existing["path_ids"] = sorted(set(existing.get("path_ids", []) + node.get("path_ids", [])))
             return
         nodes[node["id"]] = node
 
@@ -623,6 +641,10 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                 "kind": "entry" if index == 0 else "crown_jewel" if index == len(path["hops"]) - 1 else "asset",
                 "group": "Entry" if index == 0 else "Target" if index == len(path["hops"]) - 1 else "Transit",
                 "risk": path["before_remediation_risk"] if index == len(path["hops"]) - 1 else max(20, path["before_remediation_risk"] - index * 8),
+                "impact_score": _point_impact_score(path, index),
+                "pre_remediation_risk": path["before_remediation_risk"],
+                "post_remediation_risk": path["after_remediation_risk"],
+                "path_ids": [path["id"]],
                 "difficulty": path["difficulty"],
             })
             if index > 0:
@@ -631,7 +653,7 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                     "id": edge_id,
                     "from": hop_ids[index - 1],
                     "to": hop_ids[index],
-                    "label": f"{path['difficulty']} / {path['before_remediation_risk']}%",
+                    "label": f"impact {_point_impact_score(path, index)} / pre {path['before_remediation_risk']}% / post {path['after_remediation_risk']}%",
                     "weight": path["before_remediation_risk"],
                     "path_id": path["id"],
                     "relation": "reachability",
@@ -646,6 +668,11 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                 "kind": "finding",
                 "group": step.get("source") or "scanner",
                 "risk": step.get("business_risk", 0),
+                "impact_score": _clamp(step.get("business_risk", 0) * 0.55 + path["business_impact"] * 0.35 + path["likelihood"] * 0.1),
+                "pre_remediation_risk": path["before_remediation_risk"],
+                "post_remediation_risk": path["after_remediation_risk"],
+                "path_ids": [path["id"]],
+                "source_finding_id": step.get("finding_id"),
                 "difficulty": path["difficulty"],
             }
             upsert(node)
@@ -655,7 +682,7 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                 "id": f"chain:{path['id']}:{index}",
                 "from": source,
                 "to": node["id"],
-                "label": step.get("technique") or "Exploit precondition",
+                "label": f"{step.get('technique') or 'Exploit precondition'} / impact {node['impact_score']} / pre {path['before_remediation_risk']}% / post {path['after_remediation_risk']}%",
                 "weight": step.get("business_risk", 0),
                 "path_id": path["id"],
                 "relation": "exploit_precondition",
@@ -669,6 +696,10 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
             "kind": "breaker",
             "group": path["priority"],
             "risk": path["risk_delta"],
+            "impact_score": path["risk_delta"],
+            "pre_remediation_risk": path["before_remediation_risk"],
+            "post_remediation_risk": path["after_remediation_risk"],
+            "path_ids": [path["id"]],
             "difficulty": path["difficulty"],
         }
         upsert(breaker)
@@ -678,7 +709,7 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                 "id": f"chain:{path['id']}:target",
                 "from": chain_nodes[-1]["id"],
                 "to": hop_ids[-1],
-                "label": f"{path['target_asset']} compromise",
+                "label": f"{path['target_asset']} compromise / pre {path['before_remediation_risk']}% / post {path['after_remediation_risk']}%",
                 "weight": path["before_remediation_risk"],
                 "path_id": path["id"],
                 "relation": "exploit_precondition",
@@ -687,7 +718,7 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
                 "id": f"breaker:{path['id']}:risk-drop",
                 "from": breaker["id"],
                 "to": hop_ids[-1],
-                "label": f"{path['risk_delta']}% risk reduction",
+                "label": f"{path['risk_delta']}% risk reduction / residual {path['after_remediation_risk']}%",
                 "weight": path["risk_delta"],
                 "path_id": path["id"],
                 "relation": "breaker",
@@ -703,9 +734,9 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
             "before_remediation_risk": path["before_remediation_risk"],
             "after_remediation_risk": path["after_remediation_risk"],
             "nodes": [
-                {"id": hop_ids[0], "label": path["entry_asset"], "kind": "entry", "group": "Entry", "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]},
+                {"id": hop_ids[0], "label": path["entry_asset"], "kind": "entry", "group": "Entry", "risk": path["before_remediation_risk"], "impact_score": _point_impact_score(path, 0), "pre_remediation_risk": path["before_remediation_risk"], "post_remediation_risk": path["after_remediation_risk"], "path_ids": [path["id"]], "difficulty": path["difficulty"]},
                 *chain_nodes,
-                {"id": hop_ids[-1], "label": path["target_asset"], "kind": "crown_jewel", "group": "Target", "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]},
+                {"id": hop_ids[-1], "label": path["target_asset"], "kind": "crown_jewel", "group": "Target", "risk": path["before_remediation_risk"], "impact_score": _point_impact_score(path, len(path["hops"]) - 1), "pre_remediation_risk": path["before_remediation_risk"], "post_remediation_risk": path["after_remediation_risk"], "path_ids": [path["id"]], "difficulty": path["difficulty"]},
                 breaker,
             ],
             "edges": chain_edges,
@@ -716,6 +747,52 @@ def _graph_model(paths: list[dict[str, Any]]) -> dict[str, Any]:
         "edges": sorted(edges.values(), key=lambda edge: int(edge.get("weight", 0)), reverse=True)[:120],
         "vulnerability_chains": chains[:8],
     }
+
+
+def _point_impact_score(path: dict[str, Any], index: int) -> int:
+    position_weight = 20 if index == len(path["hops"]) - 1 else 8 if index == 0 else 12
+    return _clamp(path["business_impact"] * 0.45 + path["before_remediation_risk"] * 0.35 + path["likelihood"] * 0.1 + position_weight)
+
+
+def _vulnerability_fan_out(paths: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for path in paths:
+        for step in path["chain"]:
+            finding_id = str(step.get("finding_id"))
+            item = groups.setdefault(finding_id, {
+                "finding_id": finding_id,
+                "title": step.get("title", "Finding"),
+                "asset_name": step.get("asset_name", "Unmapped"),
+                "scanner": step.get("source", "scanner"),
+                "path_ids": set(),
+                "targets": set(),
+                "impact_score": 0,
+                "pre_remediation_risk": 0,
+                "post_remediation_risk": 100,
+                "total_risk_reduction": 0,
+            })
+            item["path_ids"].add(path["id"])
+            item["targets"].add(path["target_asset"])
+            item["impact_score"] = max(item["impact_score"], _clamp(step.get("business_risk", 0) * 0.45 + path["business_impact"] * 0.35 + path["before_remediation_risk"] * 0.2))
+            item["pre_remediation_risk"] = max(item["pre_remediation_risk"], path["before_remediation_risk"])
+            item["post_remediation_risk"] = min(item["post_remediation_risk"], path["after_remediation_risk"])
+            item["total_risk_reduction"] += path["risk_delta"]
+    records = []
+    for item in groups.values():
+        records.append({
+            "finding_id": item["finding_id"],
+            "title": item["title"],
+            "asset_name": item["asset_name"],
+            "scanner": item["scanner"],
+            "path_count": len(item["path_ids"]),
+            "path_ids": sorted(item["path_ids"]),
+            "targets": sorted(item["targets"]),
+            "impact_score": item["impact_score"],
+            "pre_remediation_risk": item["pre_remediation_risk"],
+            "post_remediation_risk": item["post_remediation_risk"],
+            "total_risk_reduction": item["total_risk_reduction"],
+        })
+    return sorted(records, key=lambda item: (item["path_count"], item["impact_score"]), reverse=True)[:25]
 
 
 def _centrality(paths: list[dict[str, Any]]) -> list[dict[str, Any]]:

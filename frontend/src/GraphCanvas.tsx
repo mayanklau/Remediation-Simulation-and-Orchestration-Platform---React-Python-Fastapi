@@ -20,6 +20,14 @@ type GraphNode = {
   kind: string;
   group?: string;
   risk?: number;
+  impactScore?: number;
+  impact_score?: number;
+  preRemediationRisk?: number;
+  pre_remediation_risk?: number;
+  postRemediationRisk?: number;
+  post_remediation_risk?: number;
+  pathIds?: string[];
+  path_ids?: string[];
   maturity?: number;
   difficulty?: string;
   metadata?: Record<string, unknown>;
@@ -98,7 +106,8 @@ export function GraphCanvas({ title, description, nodes = [], edges = [], mode }
         {selected ? (
           <>
             <strong>{selected.label}</strong>
-            <span>{selected.kind.replace("_", " ")} / {selected.group ?? "ungrouped"} / {selected.risk ?? 0}% risk</span>
+            <span>{selected.kind.replace("_", " ")} / {selected.group ?? "ungrouped"} / impact {selected.impactScore ?? selected.impact_score ?? selected.risk ?? 0}</span>
+            <span>pre {selected.preRemediationRisk ?? selected.pre_remediation_risk ?? selected.risk ?? 0}% / post {selected.postRemediationRisk ?? selected.post_remediation_risk ?? selected.risk ?? 0}% / paths {(selected.pathIds ?? selected.path_ids ?? []).length || 1}</span>
             <span>{selected.maturity !== undefined ? `${selected.maturity}% maturity` : selected.difficulty ?? "difficulty pending"}</span>
           </>
         ) : (
@@ -111,13 +120,15 @@ export function GraphCanvas({ title, description, nodes = [], edges = [], mode }
 
 function EnterpriseNode({ data }: NodeProps) {
   const risk = Number(data.risk ?? 0);
+  const impact = Number(data.impactScore ?? data.impact_score ?? risk);
   return (
     <div className={`flow-node ${data.kind}`}>
       <Handle type="target" position={Position.Left} />
       <small>{String(data.kind).replace("_", " ")}</small>
       <strong>{String(data.label)}</strong>
-      <span>{String(data.group ?? "graph")} / {risk}% risk</span>
-      <div className="risk-meter"><i style={{ width: `${Math.min(100, risk)}%` }} /></div>
+      <span>{String(data.group ?? "graph")} / impact {impact}</span>
+      <span>pre {String(data.preRemediationRisk ?? data.pre_remediation_risk ?? risk)}% / post {String(data.postRemediationRisk ?? data.post_remediation_risk ?? risk)}%</span>
+      <div className="risk-meter"><i style={{ width: `${Math.min(100, impact)}%` }} /></div>
       <Handle type="source" position={Position.Right} />
     </div>
   );
