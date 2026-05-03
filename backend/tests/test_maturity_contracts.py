@@ -108,12 +108,23 @@ def test_cyber_risk_intelligence_covers_subject_matter_features():
 
 def test_application_logic_readiness_defines_enforced_lifecycles():
     model = build_application_logic_readiness_model()
-    assert model["summary"]["lifecycles"] >= 6
-    assert model["summary"]["transitions"] >= 35
+    assert model["summary"]["lifecycles"] >= 20
+    assert model["summary"]["transitions"] >= 120
     assert model["summary"]["verdict"] == "app_logic_ready_with_external_infra_gates"
-    assert "remediation_action" in [item["id"] for item in model["lifecycles"]]
+    ids = [item["id"] for item in model["lifecycles"]]
+    assert "remediation_action" in ids
+    assert "policy_conflict" in ids
+    assert "connector_certification" in ids
+    assert "validation_reopen" in ids
+    assert "customer_pilot" in ids
+    assert "agentic_action" in ids
+    assert "production_operations" in ids
     assert not can_transition("remediation_action", "PLANNED", "PENDING_APPROVAL", ["rollout_steps"])["allowed"]
     assert can_transition("remediation_action", "PLANNED", "PENDING_APPROVAL", ["rollout_steps", "validation_steps", "evidence_required"])["allowed"]
+    assert not can_transition("policy_conflict", "PRIORITIZED", "RESOLVED", ["winning_policy", "reason"])["allowed"]
+    assert can_transition("policy_conflict", "PRIORITIZED", "RESOLVED", ["winning_policy", "reason", "test_result"])["allowed"]
+    assert not can_transition("customer_pilot", "SECURITY_REVIEWED", "SIGNED_OFF", ["success_metrics"])["allowed"]
+    assert can_transition("customer_pilot", "SECURITY_REVIEWED", "SIGNED_OFF", ["success_metrics", "sponsor_approval"])["allowed"]
 
 
 def test_rbac_keeps_auditors_read_only():
