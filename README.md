@@ -275,8 +275,11 @@ The application includes the foundations expected for an enterprise pilot:
 - Docker Compose
 - backend tests
 - frontend build pipeline
+- production reality model for container hardening, rate limits, queue backpressure, dead letters, backup/restore, object storage, telemetry/SLOs, progressive delivery, secret rotation, and rollback drills
 
 For live production deployment, add managed MongoDB, external secret manager, enterprise SSO, immutable object storage for evidence, queue-backed workers, OpenTelemetry tracing, alert routing, centralized rate limiting, and organization-specific governance policies.
+
+Use the **Reality** screen or `GET /api/production-reality` to inspect the below-the-waterline controls that still require customer infrastructure wiring before live remediation execution.
 
 ## Current Execution Policy
 

@@ -9,6 +9,7 @@ from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
 from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
+from app.services.production_reality import build_production_reality_model
 
 router = APIRouter()
 
@@ -71,6 +72,11 @@ async def production_expansion():
 @router.get("/production-effectiveness")
 async def production_effectiveness():
     return {"effectiveness": build_production_effectiveness_model()}
+
+
+@router.get("/production-reality")
+async def production_reality():
+    return {"reality": build_production_reality_model()}
 
 
 @router.get("/go-live")

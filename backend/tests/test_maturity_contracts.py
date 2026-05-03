@@ -7,6 +7,7 @@ from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
 from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
+from app.services.production_reality import build_production_reality_model
 
 
 def test_production_config_requires_oidc_and_session_secret():
@@ -42,6 +43,7 @@ def test_route_permission_contract_covers_enterprise_surfaces():
     assert route_permission_for("/api/enterprise-readiness", "GET") == "report:read"
     assert route_permission_for("/api/production-expansion", "GET") == "report:read"
     assert route_permission_for("/api/production-effectiveness", "GET") == "report:read"
+    assert route_permission_for("/api/production-reality", "GET") == "report:read"
     assert route_permission_for("/api/go-live", "GET") == "report:read"
     assert route_permission_for("/api/audit", "GET") == "audit:read"
 
@@ -73,6 +75,14 @@ def test_production_effectiveness_covers_validation_and_dead_letters():
     assert model["summary"]["data_quality_controls"] >= 8
     assert "after_scan" in [item["id"] for item in model["validation_loop"]]
     assert "dead_letters" in [item["id"] for item in model["observability_signals"]]
+
+
+def test_production_reality_covers_below_waterline_controls():
+    model = build_production_reality_model()
+    assert model["summary"]["layers"] >= 6
+    assert model["summary"]["controls"] >= 20
+    assert "Load balancer health and timeout policy" in model["launch_blockers"]
+    assert "dead_letters" in [control["id"] for layer in model["layers"] for control in layer["controls"]]
 
 
 def test_cyber_risk_intelligence_covers_subject_matter_features():

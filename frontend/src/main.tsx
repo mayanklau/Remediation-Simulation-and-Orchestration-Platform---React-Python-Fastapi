@@ -38,6 +38,7 @@ type RouteKey =
   | "readiness"
   | "expansion"
   | "effectiveness"
+  | "productionReality"
   | "goLive"
   | "policies"
   | "reports"
@@ -74,6 +75,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "readiness", label: "Readiness", icon: Sparkles },
       { key: "expansion", label: "Expansion", icon: ShieldCheck },
       { key: "effectiveness", label: "Effectiveness", icon: Activity },
+      { key: "productionReality", label: "Reality", icon: Activity },
       { key: "goLive", label: "Go Live", icon: CheckCircle2 },
       { key: "reports", label: "Reports", icon: FileCheck },
       { key: "audit", label: "Audit", icon: ScrollText },
@@ -865,6 +867,43 @@ function Audit({ refresh }: PageProps) {
   return <><Header eyebrow="Audit trail" title="Audit" description="Tenant-scoped audit records for ingestion, simulation, policy, connector, and agent events." /><Table rows={data?.audit || []} columns={["actor", "action", "entity_type", "created_at"]} /></>;
 }
 
+function ProductionReality({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/production-reality", refresh);
+  const reality = data?.reality;
+  return (
+    <>
+      <Header eyebrow="Below the waterline" title="Production Reality" description="Runtime, networking, storage, queues, observability, release, rollback, and customer-infrastructure controls that separate MVP from production." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Layers" value={reality?.summary?.layers ?? 0} />
+        <Metric label="Controls" value={reality?.summary?.controls ?? 0} />
+        <Metric label="Closed" value={reality?.summary?.below_waterline_closed ?? 0} />
+        <Metric label="Reality Score" value={`${reality?.summary?.production_reality_score ?? 0}%`} />
+      </section>
+      <section className="grid cols-2">
+        {(reality?.layers || []).map((layer: any) => (
+          <div className="panel" key={layer.id}>
+            <h2>{layer.name}</h2>
+            <p>{layer.purpose}</p>
+            <table>
+              <thead><tr><th>Control</th><th>Status</th><th>Evidence</th><th>Gap</th></tr></thead>
+              <tbody>
+                {(layer.controls || []).map((control: any) => (
+                  <tr key={control.id}><td>{control.name}</td><td><Badge value={control.status} /></td><td>{control.evidence}</td><td>{control.gap}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </section>
+      <section className="grid cols-2">
+        <div className="panel"><h2>Launch Blockers</h2><ul>{(reality?.launch_blockers || []).map((item: string) => <li key={item}>{item}</li>)}</ul></div>
+        <div className="panel"><h2>Next Actions</h2><ol>{(reality?.next_actions || []).map((item: string) => <li key={item}>{item}</li>)}</ol></div>
+      </section>
+    </>
+  );
+}
+
 function Ops({ refresh, bump }: PageProps) {
   const { data } = useApi<any>("/api/observability", refresh);
   return <><Header eyebrow="Production operations" title="Operations" description="Worker runs, connector dry-runs, observability, and alert readiness."><button onClick={async () => { await api("/api/workers/run", { method: "POST", body: JSON.stringify({ lane: "simulation", limit: 3 }) }); bump(); }}>Run worker</button></Header><Json value={data} /></>;
@@ -918,6 +957,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, productionReality: ProductionReality, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);
