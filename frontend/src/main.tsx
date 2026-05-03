@@ -309,21 +309,27 @@ function AttackPaths({ refresh, bump }: PageProps) {
           </div>
           <Badge value={`${model?.chain_intelligence_studio?.high_confidence_chains?.length ?? 0} high-confidence`} />
         </div>
-        <section className="grid cols-3">
-          <div>
+        <section className="chain-studio-grid">
+          <div className="chain-studio-card">
             <h3>Stage Model</h3>
-            <div className="loop-grid">
+            <div className="stage-card-grid">
               {(model?.chain_intelligence_studio?.stage_model || []).map((stage: any) => (
-                <div className="loop-stage" key={stage.stage}>
+                <div className="stage-card" key={stage.stage}>
                   <strong>{stage.stage}</strong>
-                  <small>{stage.purpose}</small>
-                  <span>{(stage.evidence || []).join(", ")}</span>
+                  <p>{stage.purpose}</p>
+                  <div>{(stage.evidence || []).map((item: string) => <Badge key={item} value={item} />)}</div>
                 </div>
               ))}
             </div>
           </div>
-          <Table title="Risk Waterfall Leaders" rows={(model?.chain_intelligence_studio?.top_risk_contributors || []).slice(0, 6)} columns={["path", "factor", "contribution", "explanation"]} />
-          <Table title="Best Controls" rows={(model?.chain_intelligence_studio?.control_effectiveness_leaders || []).slice(0, 6)} columns={["control", "risk_reduction", "operational_friction", "time_to_mitigate", "recommendation"]} />
+          <div className="chain-studio-card">
+            <h3>Risk Waterfall Leaders</h3>
+            <CompactTable rows={(model?.chain_intelligence_studio?.top_risk_contributors || []).slice(0, 6)} columns={["factor", "contribution", "explanation"]} />
+          </div>
+          <div className="chain-studio-card">
+            <h3>Best Controls</h3>
+            <CompactTable rows={(model?.chain_intelligence_studio?.control_effectiveness_leaders || []).slice(0, 6)} columns={["control", "risk_reduction", "operational_friction", "time_to_mitigate", "recommendation"]} />
+          </div>
         </section>
       </section>
       <GraphCanvas
@@ -872,6 +878,24 @@ function Table({ title, rows, columns }: { title?: string; rows: any[]; columns:
         </tbody>
       </table>
     </section>
+  );
+}
+
+function CompactTable({ rows, columns }: { rows: any[]; columns: string[] }) {
+  return (
+    <div className="compact-table-wrap">
+      <table className="compact-table">
+        <thead><tr>{columns.map((column) => <th key={column}>{column.replace(/_/g, " ")}</th>)}</tr></thead>
+        <tbody>
+          {rows.length === 0 && <tr><td colSpan={columns.length}>No records yet.</td></tr>}
+          {rows.map((row, index) => (
+            <tr key={row._id || row.id || `${row.path_id || row.path || "row"}-${index}`}>
+              {columns.map((column) => <td key={column}>{renderCell(row, column)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
