@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     local_slm_model: str = ""
     feature_autonomous_remediation: bool = False
     feature_model_planning: bool = True
+    cors_allowed_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001,http://localhost:3002,http://127.0.0.1:3002,http://localhost:3004,http://127.0.0.1:3004"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -42,6 +43,10 @@ class Settings(BaseSettings):
             raise ValueError("SESSION_SECRET must be configured in production")
         if self.environment == "production" and (not self.oidc_issuer or not self.oidc_client_id):
             raise ValueError("OIDC issuer and client id are required in production")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
 
 @lru_cache

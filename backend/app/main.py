@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.auth import AuthzMiddleware
+from app.config import get_settings
 from app.database import lifespan
 from app.routers import core, governance, ingestion, inventory, remediation
 from app.security import InMemoryRateLimitMiddleware, SecurityHeadersMiddleware
 
+settings = get_settings()
 
 app = FastAPI(
     title="EY Remediation Twin API",
@@ -15,16 +17,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-        "http://localhost:3002",
-        "http://127.0.0.1:3002",
-        "http://localhost:3004",
-        "http://127.0.0.1:3004",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
