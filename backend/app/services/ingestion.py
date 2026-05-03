@@ -19,6 +19,12 @@ def fingerprint(payload: dict[str, Any], asset_external_id: str | None) -> str:
     return sha256(raw.encode("utf-8")).hexdigest()
 
 
+def mongo_update_payload(document: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
+    update = dict(document)
+    document_id = update.pop("_id", None)
+    return document_id, update
+
+
 async def ingest_findings(db: AsyncIOMotorDatabase, tenant_id: str, findings: list[dict[str, Any]], actor: str = "api") -> dict[str, Any]:
     created = 0
     updated = 0
@@ -53,9 +59,10 @@ async def ingest_findings(db: AsyncIOMotorDatabase, tenant_id: str, findings: li
         existing = await db.findings.find_one({"tenant_id": tenant_id, "fingerprint": fp})
         if existing:
             updated += 1
+            _, update = mongo_update_payload(document.model_dump(by_alias=True))
             await db.findings.update_one(
                 {"_id": existing["_id"]},
-                {"$set": {**document.model_dump(by_alias=True), "_id": existing["_id"], "first_seen_at": existing.get("first_seen_at", now()), "updated_at": now()}},
+                {"$set": {**update, "first_seen_at": existing.get("first_seen_at", now()), "updated_at": now()}},
             )
             finding_id = existing["_id"]
         else:
@@ -94,7 +101,8 @@ async def upsert_asset(db: AsyncIOMotorDatabase, tenant_id: str, payload: dict[s
     )
     existing = await db.assets.find_one({"tenant_id": tenant_id, "external_id": external_id})
     if existing:
-        await db.assets.update_one({"_id": existing["_id"]}, {"$set": {**asset.model_dump(by_alias=True), "_id": existing["_id"], "updated_at": now()}})
+        _, update = mongo_update_payload(asset.model_dump(by_alias=True))
+        await db.assets.update_one({"_id": existing["_id"]}, {"$set": {**update, "updated_at": now()}})
         asset.id = existing["_id"]
     else:
         try:
@@ -109,9 +117,10 @@ async def upsert_source_finding(db: AsyncIOMotorDatabase, tenant_id: str, findin
     source = str(payload.get("source", "api"))
     source_id = str(payload.get("source_id") or payload.get("sourceId") or fingerprint(payload, payload.get("asset_external_id")))
     doc = SourceFinding(tenant_id=tenant_id, finding_id=finding_id, source=source, source_id=source_id, raw_payload=payload)
+    document_id, update = mongo_update_payload(doc.model_dump(by_alias=True))
     await db.source_findings.update_one(
         {"tenant_id": tenant_id, "source": source, "source_id": source_id},
-        {"$set": doc.model_dump(by_alias=True)},
+        {"$set": update, "$setOnInsert": {"_id": document_id}},
         upsert=True,
     )
 
@@ -136,4 +145,3 @@ def build_action(tenant_id: str, finding_id: str, finding: Finding, asset: Asset
         complexity=4 if finding.severity == "CRITICAL" else 3,
         expected_risk_reduction=min(95, finding.business_risk_score * 0.72),
     )
-
