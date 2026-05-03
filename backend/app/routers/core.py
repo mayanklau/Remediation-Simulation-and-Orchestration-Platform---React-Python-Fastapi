@@ -8,6 +8,7 @@ from app.services.application_logic_readiness import build_application_logic_rea
 from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_model
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
+from app.services.kb_planner_foundation import build_kb_planner_foundation
 from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
 from app.services.production_reality import build_production_reality_model
@@ -68,6 +69,11 @@ async def enterprise_readiness():
 @router.get("/application-logic-readiness")
 async def application_logic_readiness():
     return {"application_logic": build_application_logic_readiness_model()}
+
+
+@router.get("/kb-planner-foundation")
+async def kb_planner_foundation():
+    return {"foundation": build_kb_planner_foundation()}
 
 
 @router.get("/production-expansion")

@@ -38,6 +38,7 @@ type RouteKey =
   | "integrations"
   | "readiness"
   | "appLogic"
+  | "kbPlanner"
   | "expansion"
   | "effectiveness"
   | "productionReality"
@@ -76,6 +77,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
       { key: "readiness", label: "Readiness", icon: Sparkles },
       { key: "appLogic", label: "App Logic", icon: ClipboardCheck },
+      { key: "kbPlanner", label: "KB Planner", icon: Search },
       { key: "expansion", label: "Expansion", icon: ShieldCheck },
       { key: "effectiveness", label: "Effectiveness", icon: Activity },
       { key: "productionReality", label: "Reality", icon: Activity },
@@ -779,6 +781,55 @@ function ApplicationLogicReadiness({ refresh }: PageProps) {
   );
 }
 
+function KbPlannerFoundation({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/kb-planner-foundation", refresh);
+  const foundation = data?.foundation;
+  return (
+    <>
+      <Header eyebrow="Knowledge foundation" title="KB + Planner Agent Foundation" description="Canonical KB, derived indexes, hybrid retrieval facade, deterministic planner shell, typed tool manifest, provenance, budgets, and human approval gates." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Derived Stores" value={foundation?.summary?.derived_stores ?? 0} />
+        <Metric label="Retrieval Modes" value={foundation?.summary?.retrieval_modes ?? 0} />
+        <Metric label="Planner Stages" value={foundation?.summary?.planner_stages ?? 0} />
+        <Metric label="Non-Negotiables" value={foundation?.summary?.non_negotiables ?? 0} />
+      </section>
+      <section className="grid cols-2">
+        <div className="panel">
+          <div className="panel-head"><div><h2>Canonical Contract</h2><p>{foundation?.data_contract?.rebuild_rule}</p></div><Badge value={foundation?.summary?.status || "contract"} /></div>
+          <table><tbody>
+            <tr><td>Canonical store</td><td>{foundation?.summary?.canonical_store}</td></tr>
+            <tr><td>Foreign key</td><td>{foundation?.data_contract?.foreign_key_rule}</td></tr>
+            <tr><td>Idempotency</td><td>{(foundation?.data_contract?.idempotency_key || []).join(" + ")}</td></tr>
+            <tr><td>Fields</td><td>{(foundation?.data_contract?.required_fields || []).join(", ")}</td></tr>
+          </tbody></table>
+        </div>
+        <div className="panel">
+          <h2>Retrieval Facade</h2>
+          <p>{foundation?.retrieval_facade?.rule}</p>
+          <table><tbody>
+            <tr><td>Modes</td><td>{(foundation?.retrieval_facade?.modes || []).join(", ")}</td></tr>
+            <tr><td>Merge key</td><td>{foundation?.retrieval_facade?.merge_key}</td></tr>
+            <tr><td>Flow</td><td>{(foundation?.retrieval_facade?.flow || []).join(" -> ")}</td></tr>
+          </tbody></table>
+        </div>
+      </section>
+      <section className="grid cols-2">
+        {(foundation?.stores || []).map((store: any) => (
+          <div className="panel" key={store.id}>
+            <div className="panel-head"><div><h2>{store.tool}</h2><p>{store.role}</p></div><Badge value={store.canonical ? "canonical" : "derived"} /></div>
+            <table><tbody><tr><td>Rebuild</td><td>{store.rebuild_source}</td></tr><tr><td>Isolation</td><td>{store.tenant_isolation}</td></tr></tbody></table>
+          </div>
+        ))}
+      </section>
+      <section className="grid cols-2">
+        <div className="panel"><h2>Ingestion Pipeline</h2><ul>{(foundation?.ingestion_pipeline || []).map((stage: any) => <li key={stage.id}>{stage.name}: {(stage.gates || []).join(", ")}</li>)}</ul></div>
+        <div className="panel"><h2>Planner Pipeline</h2><ul>{(foundation?.planner_pipeline || []).map((stage: any) => <li key={stage.id}>{stage.name}: {(stage.gates || []).join(", ")}</li>)}</ul></div>
+      </section>
+    </>
+  );
+}
+
 function ProductionExpansion({ refresh }: PageProps) {
   const { data, loading, error } = useApi<any>("/api/production-expansion", refresh);
   const expansion = data?.expansion;
@@ -1002,6 +1053,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, appLogic: ApplicationLogicReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, productionReality: ProductionReality, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, appLogic: ApplicationLogicReadiness, kbPlanner: KbPlannerFoundation, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, productionReality: ProductionReality, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

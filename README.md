@@ -51,6 +51,7 @@ EY Remediation Twin creates a governed operating layer for:
 - Remediation plan generation with rollout, rollback, validation, and evidence requirements.
 - Virtual patching and path breaker recommendations for exposed, unpatchable, or crown-jewel risk.
 - Agentic orchestrator that plans remediation with safety rails and model fallback.
+- Knowledge Base + Planner Agent foundation aligned to the reference architecture: MongoDB canonical store, derived vector/page/graph/object indexes, OCSF-style KB records, PII-before-vectorization, hybrid retrieval facade, typed tool manifest, deterministic planner DAG, W3C provenance, budget enforcement, and HITL gates.
 - Governance policies for virtual patching, evidence gates, dry-run controls, and production approval.
 - Reports, audit log, connector dry-runs, and worker dry-runs.
 - Manual connector and integration factory for any scanner, CMDB, ticketing, cloud, code, IAM, notification, or custom HTTP provider with Mongo-backed profile persistence and dry-run health checks.

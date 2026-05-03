@@ -6,6 +6,7 @@ from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_m
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.application_logic_readiness import build_application_logic_readiness_model, can_transition
 from app.services.go_live import build_go_live_model
+from app.services.kb_planner_foundation import build_kb_planner_foundation
 from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
 from app.services.production_reality import build_production_reality_model
@@ -43,6 +44,7 @@ def test_route_permission_contract_covers_enterprise_surfaces():
     assert route_permission_for("/api/integrations", "POST") == "connector:run"
     assert route_permission_for("/api/enterprise-readiness", "GET") == "report:read"
     assert route_permission_for("/api/application-logic-readiness", "GET") == "report:read"
+    assert route_permission_for("/api/kb-planner-foundation", "GET") == "report:read"
     assert route_permission_for("/api/production-expansion", "GET") == "report:read"
     assert route_permission_for("/api/production-effectiveness", "GET") == "report:read"
     assert route_permission_for("/api/production-reality", "GET") == "report:read"
@@ -125,6 +127,19 @@ def test_application_logic_readiness_defines_enforced_lifecycles():
     assert can_transition("policy_conflict", "PRIORITIZED", "RESOLVED", ["winning_policy", "reason", "test_result"])["allowed"]
     assert not can_transition("customer_pilot", "SECURITY_REVIEWED", "SIGNED_OFF", ["success_metrics"])["allowed"]
     assert can_transition("customer_pilot", "SECURITY_REVIEWED", "SIGNED_OFF", ["success_metrics", "sponsor_approval"])["allowed"]
+
+
+def test_kb_planner_foundation_aligns_to_reference_architecture():
+    foundation = build_kb_planner_foundation()
+    canonical = [store for store in foundation["stores"] if store["canonical"]]
+    assert len(canonical) == 1
+    assert canonical[0]["id"] == "mongodb"
+    assert all("MongoDB" in store["rebuild_source"] for store in foundation["stores"] if not store["canonical"])
+    assert {"semantic", "keyword", "graph", "temporal"}.issubset(set(foundation["retrieval_facade"]["modes"]))
+    assert foundation["retrieval_facade"]["merge_key"] == "record_id"
+    assert "PII scrubbing runs before vectorization." in foundation["non_negotiables"]
+    assert "Side-effecting tools require human approval." in foundation["non_negotiables"]
+    assert "embedding_model_version" in foundation["data_contract"]["required_fields"]
 
 
 def test_rbac_keeps_auditors_read_only():
