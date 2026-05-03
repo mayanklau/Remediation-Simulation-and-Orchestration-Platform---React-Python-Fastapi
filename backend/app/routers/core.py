@@ -4,6 +4,7 @@ from app.config import get_settings
 from app.dependencies import database, tenant_context
 from app.models import Tenant
 from app.services.dashboard import asset_graph, dashboard
+from app.services.application_logic_readiness import build_application_logic_readiness_model
 from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_model
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
 from app.services.go_live import build_go_live_model
@@ -62,6 +63,11 @@ async def observability(tenant: Tenant = Depends(tenant_context), db: AsyncIOMot
 @router.get("/enterprise-readiness")
 async def enterprise_readiness():
     return {"readiness": build_enterprise_readiness_catalog()}
+
+
+@router.get("/application-logic-readiness")
+async def application_logic_readiness():
+    return {"application_logic": build_application_logic_readiness_model()}
 
 
 @router.get("/production-expansion")

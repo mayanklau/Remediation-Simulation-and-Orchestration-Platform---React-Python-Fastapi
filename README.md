@@ -290,5 +290,6 @@ Live execution is intentionally disabled by default. The platform records dry-ru
 - [Product Requirements Document](PRD.md)
 - [API Reference](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Application Logic Readiness](docs/APPLICATION_LOGIC_READINESS.md)
 - [Subject Matter Maturity Pack](docs/SUBJECT_MATTER_MATURITY_PACK.md)
 - [Security Model](docs/SECURITY.md)

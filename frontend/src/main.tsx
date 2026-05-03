@@ -5,6 +5,7 @@ import {
   Bot,
   Boxes,
   CheckCircle2,
+  ClipboardCheck,
   FileCheck,
   GitPullRequestArrow,
   LayoutDashboard,
@@ -36,6 +37,7 @@ type RouteKey =
   | "agentic"
   | "integrations"
   | "readiness"
+  | "appLogic"
   | "expansion"
   | "effectiveness"
   | "productionReality"
@@ -73,6 +75,7 @@ const navGroups: Array<{ label: string; items: Array<{ key: RouteKey; label: str
     items: [
       { key: "policies", label: "Policies", icon: SlidersHorizontal },
       { key: "readiness", label: "Readiness", icon: Sparkles },
+      { key: "appLogic", label: "App Logic", icon: ClipboardCheck },
       { key: "expansion", label: "Expansion", icon: ShieldCheck },
       { key: "effectiveness", label: "Effectiveness", icon: Activity },
       { key: "productionReality", label: "Reality", icon: Activity },
@@ -745,6 +748,37 @@ function EnterpriseReadiness({ refresh }: PageProps) {
   );
 }
 
+function ApplicationLogicReadiness({ refresh }: PageProps) {
+  const { data, loading, error } = useApi<any>("/api/application-logic-readiness", refresh);
+  const logic = data?.application_logic;
+  return (
+    <>
+      <Header eyebrow="App logic readiness" title="Application Logic Contracts" description="Lifecycle state machines, transition gates, invariants, execution blockers, evidence rules, and acceptance criteria that move the platform beyond screen-level readiness." />
+      <DataStatus loading={loading} error={error} />
+      <section className="metrics">
+        <Metric label="Lifecycles" value={logic?.summary?.lifecycles ?? 0} />
+        <Metric label="Transitions" value={logic?.summary?.transitions ?? 0} />
+        <Metric label="Invariants" value={logic?.summary?.invariants ?? 0} />
+        <Metric label="Score" value={`${logic?.summary?.app_logic_score ?? 0}%`} />
+      </section>
+      <section className="grid cols-2">
+        {(logic?.lifecycles || []).map((item: any) => (
+          <div className="panel" key={item.id}>
+            <div className="panel-head"><div><h2>{item.name}</h2><p>{item.purpose}</p></div><Badge value={item.status} /></div>
+            <table><tbody>
+              <tr><td>Owner</td><td>{item.owner}</td></tr>
+              <tr><td>States</td><td>{(item.states || []).join(" -> ")}</td></tr>
+              <tr><td>Terminal</td><td>{(item.terminal_states || []).join(", ")}</td></tr>
+              <tr><td>Invariants</td><td>{(item.invariants || []).join("; ")}</td></tr>
+            </tbody></table>
+          </div>
+        ))}
+      </section>
+      <section className="panel"><h2>Acceptance Criteria</h2><ul>{(logic?.acceptance_criteria || []).map((item: string) => <li key={item}>{item}</li>)}</ul></section>
+    </>
+  );
+}
+
 function ProductionExpansion({ refresh }: PageProps) {
   const { data, loading, error } = useApi<any>("/api/production-expansion", refresh);
   const expansion = data?.expansion;
@@ -968,6 +1002,6 @@ function renderCell(row: any, column: string) {
 }
 
 type PageProps = { refresh: number; bump: () => void };
-const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, productionReality: ProductionReality, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
+const pages: Record<RouteKey, React.ComponentType<PageProps>> = { dashboard: Dashboard, findings: Findings, assets: Assets, graph: Graph, attackPaths: AttackPaths, riskIntel: RiskIntel, remediation: Remediation, simulations: Simulations, workflows: Workflows, virtual: VirtualPatch, agentic: Agentic, integrations: Integrations, readiness: EnterpriseReadiness, appLogic: ApplicationLogicReadiness, expansion: ProductionExpansion, effectiveness: ProductionEffectiveness, productionReality: ProductionReality, goLive: GoLive, policies: Policies, reports: Reports, audit: Audit, ops: Ops };
 
 createRoot(document.getElementById("root")!).render(<App />);

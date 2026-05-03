@@ -4,6 +4,7 @@ from app.config import Settings
 from app.workers import QueueJob, plan_for_lane
 from app.services.cyber_risk_intelligence import build_cyber_risk_intelligence_model
 from app.services.enterprise_readiness import build_enterprise_readiness_catalog
+from app.services.application_logic_readiness import build_application_logic_readiness_model, can_transition
 from app.services.go_live import build_go_live_model
 from app.services.production_effectiveness import build_production_effectiveness_model
 from app.services.production_expansion import build_production_expansion_model
@@ -41,6 +42,7 @@ def test_route_permission_contract_covers_enterprise_surfaces():
     assert route_permission_for("/api/integrations", "GET") == "connector:read"
     assert route_permission_for("/api/integrations", "POST") == "connector:run"
     assert route_permission_for("/api/enterprise-readiness", "GET") == "report:read"
+    assert route_permission_for("/api/application-logic-readiness", "GET") == "report:read"
     assert route_permission_for("/api/production-expansion", "GET") == "report:read"
     assert route_permission_for("/api/production-effectiveness", "GET") == "report:read"
     assert route_permission_for("/api/production-reality", "GET") == "report:read"
@@ -102,6 +104,16 @@ def test_cyber_risk_intelligence_covers_subject_matter_features():
     assert "tenable" in [item["id"] for item in model["subject_matter_maturity_pack"]["scanner_certification"]]
     assert "proven" in [item["label"] for item in model["subject_matter_maturity_pack"]["exploitability_confidence_model"]]
     assert len(model["subject_matter_maturity_pack"]["pilot_acceptance_pack"]) >= 5
+
+
+def test_application_logic_readiness_defines_enforced_lifecycles():
+    model = build_application_logic_readiness_model()
+    assert model["summary"]["lifecycles"] >= 6
+    assert model["summary"]["transitions"] >= 35
+    assert model["summary"]["verdict"] == "app_logic_ready_with_external_infra_gates"
+    assert "remediation_action" in [item["id"] for item in model["lifecycles"]]
+    assert not can_transition("remediation_action", "PLANNED", "PENDING_APPROVAL", ["rollout_steps"])["allowed"]
+    assert can_transition("remediation_action", "PLANNED", "PENDING_APPROVAL", ["rollout_steps", "validation_steps", "evidence_required"])["allowed"]
 
 
 def test_rbac_keeps_auditors_read_only():
