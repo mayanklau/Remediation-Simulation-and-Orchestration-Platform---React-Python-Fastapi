@@ -301,6 +301,31 @@ function AttackPaths({ refresh, bump }: PageProps) {
           </table>
         </section>
       </section>
+      <section className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Chain Intelligence Studio</h2>
+            <p>Kill-chain stages, MITRE tactics, evidence confidence, risk waterfall, and control-effectiveness leaders.</p>
+          </div>
+          <Badge value={`${model?.chain_intelligence_studio?.high_confidence_chains?.length ?? 0} high-confidence`} />
+        </div>
+        <section className="grid cols-3">
+          <div>
+            <h3>Stage Model</h3>
+            <div className="loop-grid">
+              {(model?.chain_intelligence_studio?.stage_model || []).map((stage: any) => (
+                <div className="loop-stage" key={stage.stage}>
+                  <strong>{stage.stage}</strong>
+                  <small>{stage.purpose}</small>
+                  <span>{(stage.evidence || []).join(", ")}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Table title="Risk Waterfall Leaders" rows={(model?.chain_intelligence_studio?.top_risk_contributors || []).slice(0, 6)} columns={["path", "factor", "contribution", "explanation"]} />
+          <Table title="Best Controls" rows={(model?.chain_intelligence_studio?.control_effectiveness_leaders || []).slice(0, 6)} columns={["control", "risk_reduction", "operational_friction", "time_to_mitigate", "recommendation"]} />
+        </section>
+      </section>
       <GraphCanvas
         title="Interactive Attack Path Graph"
         description="Real graph-library representation of entry points, exploit preconditions, vulnerable findings, crown jewels, and path breaker controls with pan, zoom, minimap, risk filters, and export."
@@ -353,7 +378,7 @@ function AttackPaths({ refresh, bump }: PageProps) {
       </section>
       <ChainGraphView chains={model?.vulnerability_chain_graph || []} />
       <Table title="Vulnerability Multi-Path Fan-Out" rows={model?.vulnerability_fan_out || []} columns={["title", "asset_name", "path_count", "targets", "impact_score", "pre_remediation_risk", "post_remediation_risk", "total_risk_reduction"]} />
-      <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority", "customer_narrative"]} />
+      <Table rows={model?.paths || []} columns={["name", "difficulty", "before_remediation_risk", "after_remediation_risk", "risk_delta", "priority", "kill_chain_narrative", "customer_narrative"]} />
       <Json value={model?.construction_method || {}} />
     </>
   );

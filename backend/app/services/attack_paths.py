@@ -112,6 +112,24 @@ async def build_attack_path_model(db: AsyncIOMotorDatabase, tenant_id: str) -> d
         "scanner_coverage": _scanner_coverage(findings),
         "scanner_normalization_adapters": _scanner_normalization_adapters(),
         "vulnerability_chaining_rules": _vulnerability_chaining_rules(),
+        "chain_intelligence_studio": {
+            "stage_model": _attack_stage_model(),
+            "top_risk_contributors": sorted([
+                {"path_id": path["id"], "path": path["name"], **item}
+                for path in paths
+                for item in path.get("risk_contribution_waterfall", [])
+            ], key=lambda item: item["contribution"], reverse=True)[:12],
+            "high_confidence_chains": [
+                {"path_id": path["id"], "name": path["name"], "confidence": _avg([step.get("evidence_confidence", 0) for step in path["chain"]]), "before_risk": path["before_remediation_risk"], "after_risk": path["after_remediation_risk"]}
+                for path in paths
+                if _avg([step.get("evidence_confidence", 0) for step in path["chain"]]) >= 70
+            ][:10],
+            "control_effectiveness_leaders": sorted([
+                {"path_id": path["id"], "path": path["name"], **control}
+                for path in paths
+                for control in path.get("control_effectiveness_matrix", [])
+            ], key=lambda item: item["risk_reduction"], reverse=True)[:12],
+        },
         "graph_algorithms": {
             "shortest_exploitable_paths": [
                 {"path_id": path["id"], "name": path["name"], "hops": path["shortest_hop_count"], "risk": path["before_remediation_risk"], "difficulty": path["difficulty"]}
@@ -217,6 +235,7 @@ def _path_record(path: list[str], chain: list[dict[str, Any]], nodes: dict[str, 
     hops = [nodes[asset_id].get("label", asset_id) for asset_id in path if asset_id in nodes]
     difficulty = _difficulty_band(difficulty_score)
     breakers = _recommended_breakers(chain, bool(start.get("internet_exposure")), str(target.get("type", "")))
+    controls = _simulate_controls(chain, before)
     return {
         "id": "-".join(path),
         "name": f"{start.get('label')} to {target.get('label')}",
@@ -238,10 +257,14 @@ def _path_record(path: list[str], chain: list[dict[str, Any]], nodes: dict[str, 
         "choke_points": hops[1:-1],
         "crown_jewel_exposure": _crown_jewel_exposure(target),
         "difficulty_explanation": _difficulty_explanation(difficulty_score, chain, len(path), bool(start.get("internet_exposure"))),
-        "control_simulations": _simulate_controls(chain, before),
+        "control_simulations": controls,
         "path_breaker_recommendations": _path_breakers(hops, chain, before, after, breakers),
         "remediation_playbook": _remediation_playbook(chain, str(target.get("type", "")), str(target.get("environment", "")), before),
         "evidence_pack": _evidence_pack(chain, before, after),
+        "kill_chain_narrative": _kill_chain_narrative(str(start.get("label")), str(target.get("label")), chain),
+        "chain_stage_summary": _chain_stage_summary(chain),
+        "risk_contribution_waterfall": _risk_contribution_waterfall(chain, before, len(path), _asset_int(target, "criticality", 3), _asset_int(target, "data_sensitivity", 3)),
+        "control_effectiveness_matrix": _control_effectiveness_matrix(controls, chain),
         "recommended_breakers": breakers,
         "evidence_requirements": _evidence_requirements(chain),
         "validation_plan": _validation_plan(chain, str(target.get("label", target.get("name", "target")))),
@@ -329,6 +352,9 @@ def _development_maturity(paths: list[dict[str, Any]], policy_count: int, simula
 
 def _chain_step(finding: dict[str, Any]) -> dict[str, Any]:
     metadata = finding.get("metadata") or {}
+    domain = _domain_from_category(finding.get("category", "vulnerability"), finding.get("source", "api"))
+    stage = _stage_for_domain(domain, finding.get("category", "vulnerability"))
+    confidence = _evidence_confidence(finding, metadata)
     return {
         "finding_id": finding.get("_id"),
         "asset_id": finding.get("asset_id"),
@@ -336,15 +362,73 @@ def _chain_step(finding: dict[str, Any]) -> dict[str, Any]:
         "source": finding.get("source", "api"),
         "category": finding.get("category", "vulnerability"),
         "severity": finding.get("severity", "MEDIUM"),
-        "domain": _domain_from_category(finding.get("category", "vulnerability"), finding.get("source", "api")),
+        "stage": stage,
+        "mitre_tactic": _mitre_tactic_for_stage(stage),
+        "domain": domain,
         "technique": metadata.get("attack_technique") or _map_technique(finding.get("category", "vulnerability")),
         "normalized_scanner": _scanner_adapter(finding.get("source", "api")),
         "exploit_preconditions": metadata.get("preconditions") if isinstance(metadata.get("preconditions"), list) else _preconditions(finding.get("category", "vulnerability")),
+        "evidence_confidence": confidence,
+        "risk_contribution": _risk_contribution(float(finding.get("business_risk_score", 0)), confidence, bool(finding.get("exploit_available")), bool(finding.get("active_exploitation"))),
         "business_risk": round(float(finding.get("business_risk_score", 0))),
         "exploit_available": bool(finding.get("exploit_available")),
         "active_exploitation": bool(finding.get("active_exploitation")),
         "patch_available": bool(finding.get("patch_available")),
     }
+
+
+def _stage_for_domain(domain: str, category: str) -> str:
+    value = f"{domain} {category}".lower()
+    if "network" in value or "application" in value:
+        return "Initial Access"
+    if "secrets" in value:
+        return "Credential Access"
+    if "iam" in value:
+        return "Privilege Escalation"
+    if "cloud" in value or "kubernetes" in value:
+        return "Lateral Movement"
+    if "cicd" in value:
+        return "Execution"
+    if "data_store" in value:
+        return "Data Impact"
+    return "Exploit"
+
+
+def _mitre_tactic_for_stage(stage: str) -> str:
+    return {
+        "Initial Access": "TA0001 Initial Access",
+        "Execution": "TA0002 Execution",
+        "Privilege Escalation": "TA0004 Privilege Escalation",
+        "Defense Evasion": "TA0005 Defense Evasion",
+        "Credential Access": "TA0006 Credential Access",
+        "Discovery": "TA0007 Discovery",
+        "Lateral Movement": "TA0008 Lateral Movement",
+        "Collection": "TA0009 Collection",
+        "Exfiltration": "TA0010 Exfiltration",
+        "Data Impact": "TA0040 Impact",
+        "Exploit": "TA0002 Execution",
+    }.get(stage, "TA0002 Execution")
+
+
+def _evidence_confidence(finding: dict[str, Any], metadata: dict[str, Any]) -> int:
+    score = 35 if finding.get("asset_id") else 15
+    if finding.get("cve") or finding.get("control_id"):
+        score += 15
+    if finding.get("exploit_available"):
+        score += 15
+    if finding.get("active_exploitation"):
+        score += 20
+    if finding.get("patch_available"):
+        score += 8
+    if isinstance(metadata.get("preconditions"), list) and metadata.get("preconditions"):
+        score += 7
+    if str(finding.get("source", "")).lower() in {"tenable", "qualys", "wiz", "snyk", "securityhub"}:
+        score += 5
+    return _clamp(score)
+
+
+def _risk_contribution(business_risk: float, confidence: int, exploit_available: bool, active_exploitation: bool) -> int:
+    return _clamp(business_risk * 0.55 + confidence * 0.25 + (8 if exploit_available else 0) + (14 if active_exploitation else 0))
 
 
 def _map_technique(category: str) -> str:
@@ -527,6 +611,65 @@ def _simulate_controls(chain: list[dict[str, Any]], before: int) -> list[dict[st
             ],
         })
     return results
+
+
+def _chain_stage_summary(chain: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    for step in chain:
+        item = groups.setdefault(step.get("stage", "Exploit"), {"stage": step.get("stage", "Exploit"), "count": 0, "max_risk": 0, "confidence": []})
+        item["count"] += 1
+        item["max_risk"] = max(item["max_risk"], int(step.get("risk_contribution", 0)))
+        item["confidence"].append(int(step.get("evidence_confidence", 0)))
+    return [{"stage": item["stage"], "count": item["count"], "max_risk": item["max_risk"], "confidence": _avg(item["confidence"])} for item in groups.values()]
+
+
+def _risk_contribution_waterfall(chain: list[dict[str, Any]], before: int, hop_count: int, criticality: int, sensitivity: int) -> list[dict[str, Any]]:
+    exploit_signal = len([step for step in chain if step.get("exploit_available") or step.get("active_exploitation")]) * 9
+    exposure_signal = max(0, 18 - hop_count * 3)
+    business_signal = criticality * 8 + sensitivity * 6
+    chain_signal = _avg([int(step.get("business_risk", 0)) for step in chain])
+    confidence_signal = _avg([int(step.get("evidence_confidence", 0)) for step in chain]) * 0.25
+    rows = [
+        {"factor": "Chained vulnerability severity", "contribution": _clamp(chain_signal * 0.45, 1, before), "explanation": "Average business risk across findings participating in this path."},
+        {"factor": "Exploit and threat signal", "contribution": _clamp(exploit_signal, 1, before), "explanation": "Public exploit or active exploitation makes the chain more practical."},
+        {"factor": "Reachability and exposure", "contribution": _clamp(exposure_signal, 1, before), "explanation": "Shorter exposed routes require fewer attacker conditions."},
+        {"factor": "Crown-jewel business impact", "contribution": _clamp(business_signal, 1, before), "explanation": "Criticality and data sensitivity of the target asset increase path impact."},
+        {"factor": "Evidence confidence", "contribution": _clamp(confidence_signal, 1, before), "explanation": "Mapped assets, scanner identity, CVE/control IDs, and preconditions increase confidence."},
+    ]
+    return sorted(rows, key=lambda item: item["contribution"], reverse=True)
+
+
+def _control_effectiveness_matrix(controls: list[dict[str, Any]], chain: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    confidence = _avg([int(step.get("evidence_confidence", 0)) for step in chain])
+    rows = []
+    for item in controls:
+        friction = 62 if item["control"] == "patch" else 38 if item["control"] == "IAM deny" else 45 if item["control"] == "segmentation" else 28 if item["control"] == "WAF rule" else 55
+        time_to_mitigate = "hours" if item["control"] in {"WAF rule", "IAM deny"} else "1-2 days" if item["control"] in {"segmentation", "cloud policy"} else "release window"
+        rows.append({
+            "control": item["control"],
+            "risk_reduction": item["risk_reduction"],
+            "operational_friction": friction,
+            "time_to_mitigate": time_to_mitigate,
+            "confidence": _clamp(confidence + (5 if item["risk_reduction"] > 30 else 0) - (8 if friction > 55 else 0)),
+            "recommendation": "preferred path breaker" if item["risk_reduction"] >= 35 and friction <= 45 else "use with approval" if item["risk_reduction"] >= 25 else "supporting control",
+        })
+    return sorted(rows, key=lambda item: (-item["risk_reduction"], item["operational_friction"]))
+
+
+def _kill_chain_narrative(entry: str, target: str, chain: list[dict[str, Any]]) -> str:
+    stages = " -> ".join([f"{step.get('stage')}: {step.get('title')}" for step in chain]) or "the modeled exploit chain"
+    return f"An attacker can begin at {entry}, progress through {stages}, and pressure {target}. The narrative is evidence-backed by scanner normalization, exploit preconditions, and path reachability."
+
+
+def _attack_stage_model() -> list[dict[str, Any]]:
+    return [
+        {"stage": "Initial Access", "purpose": "Find the first reachable weakness from internet, VPN, endpoint, app, or cloud edge.", "evidence": ["exposure", "scanner finding", "route"]},
+        {"stage": "Credential Access", "purpose": "Identify token, secret, password, or identity material that makes the next hop credible.", "evidence": ["secret scan", "IAM token", "credential age"]},
+        {"stage": "Privilege Escalation", "purpose": "Model permissions that turn a foothold into stronger control.", "evidence": ["IAM grant", "role trust", "group membership"]},
+        {"stage": "Lateral Movement", "purpose": "Show how access crosses asset, subnet, namespace, account, or project boundaries.", "evidence": ["reachability", "dependency", "security group"]},
+        {"stage": "Data Impact", "purpose": "Tie technical compromise to crown-jewel systems and regulated data.", "evidence": ["criticality", "data sensitivity", "business service"]},
+        {"stage": "Path Breaker", "purpose": "Recommend the smallest control that removes the highest-risk edge.", "evidence": ["simulation", "control diff", "residual risk"]},
+    ]
 
 
 def _path_breakers(hops: list[str], chain: list[dict[str, Any]], before: int, after: int, fallback: list[str]) -> list[dict[str, Any]]:
