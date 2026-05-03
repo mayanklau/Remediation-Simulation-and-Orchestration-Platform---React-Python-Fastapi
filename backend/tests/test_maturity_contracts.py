@@ -96,6 +96,12 @@ def test_cyber_risk_intelligence_covers_subject_matter_features():
     assert "toxic_combinations" in [item["id"] for item in model["governance_matrix"]]
     assert "regulatory_mapping" in [item["id"] for item in model["governance_matrix"]]
     assert "identity_cloud_data_risk" in [item["id"] for item in model["governance_matrix"]]
+    assert model["summary"]["certification_tracks"] >= 6
+    assert model["summary"]["mitre_mapped_hops"] >= 6
+    assert model["summary"]["control_validation_methods"] >= 7
+    assert "tenable" in [item["id"] for item in model["subject_matter_maturity_pack"]["scanner_certification"]]
+    assert "proven" in [item["label"] for item in model["subject_matter_maturity_pack"]["exploitability_confidence_model"]]
+    assert len(model["subject_matter_maturity_pack"]["pilot_acceptance_pack"]) >= 5
 
 
 def test_rbac_keeps_auditors_read_only():

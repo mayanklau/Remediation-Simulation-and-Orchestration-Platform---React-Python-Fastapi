@@ -545,6 +545,9 @@ function RiskIntel({ refresh }: PageProps) {
         <Metric label="Economics" value={intelligence?.summary?.economics_metrics ?? 0} />
         <Metric label="Scenarios" value={intelligence?.summary?.scenario_packs ?? 0} />
         <Metric label="Score" value={`${intelligence?.summary?.intelligence_score ?? 0}%`} />
+        <Metric label="Certified Sources" value={intelligence?.summary?.certification_tracks ?? 0} />
+        <Metric label="MITRE Hops" value={intelligence?.summary?.mitre_mapped_hops ?? 0} />
+        <Metric label="Control Methods" value={intelligence?.summary?.control_validation_methods ?? 0} />
       </section>
       <section className="grid cols-2">
         {(intelligence?.capabilities || []).map((item: any) => (
@@ -567,6 +570,14 @@ function RiskIntel({ refresh }: PageProps) {
       <section className="grid cols-2">
         <Table title="Adversary Scenario Packs" rows={intelligence?.scenario_packs || []} columns={["name", "kill_chain", "controls", "status"]} />
         <Table title="Governance Matrix" rows={intelligence?.governance_matrix || []} columns={["name", "scope", "output", "status"]} />
+      </section>
+      <section className="grid cols-2">
+        <Table title="Scanner Certification Matrix" rows={intelligence?.subject_matter_maturity_pack?.scanner_certification || []} columns={["source", "required_fields", "acceptance"]} />
+        <Table title="MITRE Attack-Path Depth" rows={intelligence?.subject_matter_maturity_pack?.mitre_attack_depth || []} columns={["stage", "technique", "breaker_controls"]} />
+      </section>
+      <section className="grid cols-2">
+        <Table title="Exploitability Confidence" rows={intelligence?.subject_matter_maturity_pack?.exploitability_confidence_model || []} columns={["label", "score", "explanation"]} />
+        <Table title="Control Effectiveness Library" rows={intelligence?.subject_matter_maturity_pack?.control_effectiveness_library || []} columns={["control", "objective", "validation", "time_to_mitigate"]} />
       </section>
       <section className="grid cols-2">
         <Table title="Risk Economics" rows={intelligence?.economics || []} columns={["name", "formula", "business_use", "status"]} />
